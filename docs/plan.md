@@ -1,12 +1,11 @@
 # Build plan
 
-Working document: phases, tasks, acceptance bars. Check things off as they land; when reality diverges from plan, update the plan and log why in [`what-broke.md`](what-broke.md). Architecture and rationale live in [`architecture.md`](architecture.md).
+Working document: phases, tasks, acceptance bars. Check things off as they land; when reality diverges from plan, update the plan. Architecture and rationale live in [`architecture.md`](architecture.md).
 
 ## How we work
 
 - Each phase ends with a working system and green checks — never a half-wired layer
 - Commit per meaningful step; the history should read as the build story
-- Failures and wrong assumptions get logged in `what-broke.md` as they happen, not retrospectively polished
 - Security and eval infrastructure land *before* the features they guard
 
 ## Prerequisites
@@ -38,7 +37,7 @@ External review of phase 1; accepted findings applied:
 - [x] Epoch-based timestamp comparison (lexicographic ISO compare was a bug)
 - [x] Envelope extended: `providerThreadId`, `cc`, `inReplyTo`, `headerReferences` — required for thread-scoped drafting
 - [x] `SupabaseStore` error mapping unit-tested via injected stub client
-- [x] `threat-model.md` (incl. retention, secrets, access control) and `what-broke.md` written
+- [x] `threat-model.md` written (incl. retention, secrets, access control)
 - Deferred: live Supabase integration test → phase 5 (when the live path exists). Rejected: concurrent-duplicate test (exercises Postgres's constraint guarantee, not our code).
 
 ## Phase 2 — Guarded MCP server (no LLM yet) ✅ (done)

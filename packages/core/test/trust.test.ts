@@ -54,6 +54,15 @@ describe('resolveTrustTier', () => {
     ).toBe(0);
   });
 
+  it('multi-@ address is malformed → tier 0, never parsed to an inner domain', () => {
+    expect(
+      resolveTrustTier(
+        msg('x@brightpath.edu.au@evil.com', { dmarc: 'pass', alignedDomain: 'brightpath.edu.au' }),
+        config,
+      ),
+    ).toBe(0);
+  });
+
   it('display-name spoof gains nothing: tier comes from the address domain only', () => {
     // displayName is "BrightPath Admin" in every message above; a gmail sender stays tier 0.
     expect(

@@ -11,8 +11,11 @@ export interface TrustConfig {
  * never consulted — only the verified from-address domain.
  */
 export function resolveTrustTier(message: TriageMessage, config: TrustConfig): TrustTier {
-  const domain = message.from.address.split('@')[1]?.toLowerCase();
-  if (!domain) return 0;
+  // Strict shape check: exactly one '@', non-empty local part and domain.
+  // 'x@internal.example@evil.com' must not parse to the internal domain.
+  const parts = message.from.address.split('@');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return 0;
+  const domain = parts[1].toLowerCase();
 
   const auth = message.authenticity;
   if (!auth || auth.dmarc !== 'pass') return 0;

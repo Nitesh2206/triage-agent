@@ -142,8 +142,7 @@ Eval results are stored in Supabase and charted on the dashboard.
 triage-agent/
 ├── docs/
 │   ├── architecture.md        # this document
-│   ├── threat-model.md        # threats → mitigations → tests
-│   └── what-broke.md          # running log of failures and fixes
+│   └── threat-model.md        # threats → mitigations → tests
 ├── packages/
 │   ├── core/                  # shared types, MailProvider + LLMProvider interfaces, trust tiers
 │   ├── ingestor/              # cron worker, incremental sync, idempotent writes

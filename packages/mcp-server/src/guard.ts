@@ -94,20 +94,9 @@ export async function guarded(
     return refuse('POLICY_DENIED', `${tool} requires trust tier ${minTier}; sender is tier ${tier}`);
   }
 
+  let result: Record<string, unknown>;
   try {
-    const result = await exec(message, tier);
-    await deps.audit.record({
-      actor: 'agent',
-      action: tool,
-      phase: 'outcome',
-      allowed: true,
-      outcome: 'ok',
-      trustTier: tier,
-      provider,
-      providerMessageId,
-      detail: { ...safeDetail, ...result },
-    });
-    return ok(result);
+    result = await exec(message, tier);
   } catch (e) {
     try {
       await deps.audit.record({
@@ -122,8 +111,29 @@ export async function guarded(
         detail: { error: e instanceof Error ? e.message : String(e) },
       });
     } catch {
-      // Outcome-audit failure must not turn a tool error into a hang.
+      // Outcome-audit failure must not mask the tool error itself.
     }
     return refuse('TOOL_FAILED', e instanceof Error ? e.message : String(e));
   }
+
+  // The effect succeeded. An outcome-audit failure past this point must NOT
+  // surface as a tool error — that would invite the caller to retry an action
+  // that already happened (duplicate drafts/cards). The authorization row is
+  // already persisted, so the call remains traceable.
+  try {
+    await deps.audit.record({
+      actor: 'agent',
+      action: tool,
+      phase: 'outcome',
+      allowed: true,
+      outcome: 'ok',
+      trustTier: tier,
+      provider,
+      providerMessageId,
+      detail: { ...safeDetail, ...result },
+    });
+  } catch {
+    return ok({ ...result, auditIncomplete: true });
+  }
+  return ok(result);
 }

@@ -105,6 +105,26 @@ describe('guard invariants', () => {
     expect(await drafts.count()).toBe(0);
   });
 
+  it('outcome-audit failure after a successful effect is NOT a tool error (no retry bait)', async () => {
+    const entries: AuditEntry[] = [];
+    const flakyAudit: AuditLog = {
+      record: async (entry) => {
+        if (entry.phase === 'outcome') throw new Error('audit db down');
+        entries.push(entry);
+      },
+      list: async () => entries,
+    };
+    const { client, drafts } = await setup({ audit: flakyAudit });
+    const result = await client.callTool({
+      name: 'email_draft_reply',
+      arguments: { provider: 'fixture', providerMessageId: 'm2', body: 'x' },
+    });
+    expect(result.isError).not.toBe(true);
+    expect(payload(result).auditIncomplete).toBe(true);
+    expect(payload(result).draftId).toBeDefined();
+    expect(await drafts.count()).toBe(1); // effect happened exactly once
+  });
+
   it('unknown message → UNKNOWN_MESSAGE result + attempt audit row', async () => {
     const { client, audit } = await setup();
     const result = await client.callTool({
