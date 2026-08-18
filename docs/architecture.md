@@ -44,7 +44,9 @@ These four rules drive every structural decision below:
 
 ### Stage 1 — Ingest
 
-A scheduled worker (cron, every few minutes) polls the mailbox via the Gmail API using history-based incremental sync, so each run fetches only what changed. Raw messages are stored in Supabase keyed by message ID — re-fetching the same message is a no-op, so crashes and retries are safe (idempotent by construction).
+A scheduled worker (cron, every few minutes) polls the mailbox through a cursor-based contract: `sync(cursor?) → { messages, nextCursor }`. The cursor is opaque and provider-defined — Gmail's `historyId`, Graph's `deltaLink`, the fixture provider's last timestamp — and a provider signals an expired cursor (`CursorExpiredError`) to force a full resync. Raw messages are stored in Supabase keyed by (provider, message ID) — re-fetching the same message is a no-op, so crashes and retries are safe (idempotent by construction).
+
+**Transaction semantics:** each run stores the entire fetched page first, then advances the durable cursor (`sync_state` table). If the run dies mid-page, the next run replays from the old cursor and idempotent upserts absorb the duplicates. The cursor never moves past unstored mail.
 
 No LLM is involved at this stage; it is a plain API client with retry/backoff. Mail access is behind a `MailProvider` interface with three implementations:
 
@@ -116,6 +118,8 @@ Every row maps to a test: injection fixtures must score 100% (binary: classified
 
 ## 5. Evaluation
 
+*Status: planned (phase 3). The fixture set exists and already includes labeled attack emails; the harness and CI gates do not exist yet — CI currently runs build, lint, and the ingestion unit tests only.*
+
 Three suites, run from labeled fixtures in `evals/fixtures/`:
 
 1. **Classification accuracy** — ~60 labeled training-org emails across all categories. Precision/recall per category; CI gate at a threshold (majority vote over 3 runs to absorb model nondeterminism).
@@ -157,16 +161,17 @@ TypeScript monorepo throughout. Deployment target: worker on a scheduled runner 
 
 ## 8. Build order
 
-Each phase ends with a working system:
+Each phase ends with a working system. Detailed tasks and acceptance bars live in [`plan.md`](plan.md).
 
-| Phase | Deliverable |
-|---|---|
-| 1 | Core types, `FixtureProvider`, ingestor → Supabase. *System ingests and stores.* |
-| 2 | MCP server with trust middleware, audit log, unit tests. *Tools governed before any LLM exists.* |
-| 3 | Agent loop, quarantine, classification, injection eval suite. *Pipeline classifies; evals run.* |
-| 4 | Drafting, approval queue, minimal dashboard. *Full loop demo-able end to end.* |
-| 5 | Live `GmailProvider`, deployment, cost dashboard. *Runs against a real inbox.* |
-| 6 (roadmap) | `GraphProvider`, LLM-judge suite, webhook/push ingestion, HTTP transport for the MCP server |
+| Phase | Deliverable | Status |
+|---|---|---|
+| 1 | Core types, `FixtureProvider`, ingestor → Supabase. *System ingests and stores.* | ✅ done |
+| 1.5 | External review remediation: RLS, cursor sync contract, envelope provenance, error-mapping tests. | ✅ done |
+| 2 | MCP server with trust middleware, audit log, unit tests. *Tools governed before any LLM exists.* | planned |
+| 3 | Agent loop, quarantine, classification, injection eval suite. *Pipeline classifies; evals run.* | planned |
+| 4 | Drafting, approval queue, minimal dashboard. *Full loop demo-able end to end.* | planned |
+| 5 | Live `GmailProvider`, deployment, cost dashboard. *Runs against a real inbox.* | planned |
+| 6 | `GraphProvider`, LLM-judge suite, webhook/push ingestion, HTTP transport for the MCP server | roadmap |
 
 The ordering is deliberate: the permission guard exists and is tested *before* the first model call is wired in — security is a foundation here, not a retrofit.
 

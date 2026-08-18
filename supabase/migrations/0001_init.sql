@@ -6,9 +6,13 @@ create table messages (
   id bigint generated always as identity primary key,
   provider text not null,
   provider_message_id text not null,
+  provider_thread_id text,
   from_address text not null,
   from_display_name text,
   to_addresses text[] not null default '{}',
+  cc_addresses text[] not null default '{}',
+  in_reply_to text,
+  header_references text[] not null default '{}',
   subject text not null,
   received_at timestamptz not null,
   body text not null,
@@ -40,3 +44,22 @@ create table costs (
   output_tokens integer not null,
   usd numeric(10, 6) not null
 );
+
+-- Per-mailbox sync cursor and retry state. Written by the ingestor worker (phase 5).
+-- Contract: store the whole page of messages first, then advance the cursor —
+-- idempotent upserts make replaying a partially-processed page safe.
+create table sync_state (
+  provider text primary key,
+  cursor text,
+  last_synced_at timestamptz,
+  failure_count integer not null default 0,
+  next_retry_at timestamptz
+);
+
+-- These tables live in the exposed public schema: RLS on, no policies.
+-- The backend uses the service role (bypasses RLS); anon/authenticated get
+-- nothing until dashboard policies are written deliberately (phase 4).
+alter table messages enable row level security;
+alter table audit_log enable row level security;
+alter table costs enable row level security;
+alter table sync_state enable row level security;

@@ -3,3 +3,8 @@ dist/
 .env
 .env.*
 *.tsbuildinfo
+
+# local tooling, not part of the project
+.vscode/
+graphify-out/
+.github/copilot-instructions.md

@@ -7,19 +7,24 @@ import type { MessageStore, TriageMessage, UpsertResult } from '@triage/core';
  * the constraint cannot race, application-level check-then-insert can.
  */
 export class SupabaseStore implements MessageStore {
-  private readonly client: SupabaseClient;
+  /** Client injectable so error mapping is unit-testable without a live database. */
+  constructor(private readonly client: SupabaseClient) {}
 
-  constructor(url: string, serviceKey: string) {
-    this.client = createClient(url, serviceKey);
+  static fromCredentials(url: string, serviceKey: string): SupabaseStore {
+    return new SupabaseStore(createClient(url, serviceKey));
   }
 
   async upsertMessage(message: TriageMessage): Promise<UpsertResult> {
     const { error } = await this.client.from('messages').insert({
       provider: message.provider,
       provider_message_id: message.providerMessageId,
+      provider_thread_id: message.providerThreadId ?? null,
       from_address: message.from.address,
       from_display_name: message.from.displayName ?? null,
       to_addresses: message.to.map((t) => t.address),
+      cc_addresses: (message.cc ?? []).map((c) => c.address),
+      in_reply_to: message.inReplyTo ?? null,
+      header_references: message.headerReferences ?? [],
       subject: message.subject,
       received_at: message.receivedAt,
       body: message.body,

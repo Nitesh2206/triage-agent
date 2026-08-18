@@ -23,8 +23,14 @@ export interface TriageMessage {
   /** Provider's own message id — idempotency key. */
   providerMessageId: string;
   provider: string;
+  /** Provider's thread/conversation id. Required to enforce source-thread-only drafting. */
+  providerThreadId?: string;
   from: EmailAddress;
   to: EmailAddress[];
+  cc?: EmailAddress[];
+  /** RFC 5322 In-Reply-To / References message-ids, for thread provenance. */
+  inReplyTo?: string;
+  headerReferences?: string[];
   subject: string;
   receivedAt: string; // ISO 8601
   body: string;
