@@ -1,6 +1,7 @@
 {
   "providerMessageId": "fx-004",
   "provider": "fixture",
+  "authenticity": { "dmarc": "pass", "alignedDomain": "safetygearco.com.au" },
   "from": { "address": "accounts@safetygearco.com.au", "displayName": "SafetyGear Co Accounts" },
   "to": [{ "address": "admin@brightpath.edu.au" }],
   "subject": "Invoice INV-8842 — PPE order July",

@@ -1,6 +1,7 @@
 {
   "providerMessageId": "fx-005",
   "provider": "fixture",
+  "authenticity": { "dmarc": "pass", "alignedDomain": "regulator.gov.au" },
   "from": { "address": "compliance@regulator.gov.au", "displayName": "VET Regulator Compliance" },
   "to": [{ "address": "admin@brightpath.edu.au" }],
   "subject": "Request for records — annual declaration follow-up",

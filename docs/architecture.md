@@ -74,7 +74,7 @@ Model access sits behind an `LLMProvider` interface with two implementations: `c
 
 ### Stage 4 — Guarded tools (MCP server)
 
-All actions the agent can take are tools exposed by a standalone MCP server (`triage-tools`): `email.apply_label`, `email.draft_reply`, `trello.create_card`, `triage.escalate`, `triage.log_decision`.
+All actions the agent can take are tools exposed by a standalone MCP server (`triage-tools`): `email_apply_label`, `email_draft_reply`, `trello_create_card`, `triage_escalate`, `triage_log_decision`.
 
 MCP is an open protocol (JSON-RPC over stdio/HTTP), so the server is model-agnostic — any MCP-capable client can drive it. More importantly, the server is where **trust-tier enforcement** lives:
 
@@ -167,7 +167,7 @@ Each phase ends with a working system. Detailed tasks and acceptance bars live i
 |---|---|---|
 | 1 | Core types, `FixtureProvider`, ingestor → Supabase. *System ingests and stores.* | ✅ done |
 | 1.5 | External review remediation: RLS, cursor sync contract, envelope provenance, error-mapping tests. | ✅ done |
-| 2 | MCP server with trust middleware, audit log, unit tests. *Tools governed before any LLM exists.* | planned |
+| 2 | MCP server with trust middleware, audit log, unit tests. *Tools governed before any LLM exists.* | ✅ done |
 | 3 | Agent loop, quarantine, classification, injection eval suite. *Pipeline classifies; evals run.* | planned |
 | 4 | Drafting, approval queue, minimal dashboard. *Full loop demo-able end to end.* | planned |
 | 5 | Live `GmailProvider`, deployment, cost dashboard. *Runs against a real inbox.* | planned |

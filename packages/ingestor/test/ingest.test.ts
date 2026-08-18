@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
+import { MemoryStore } from '@triage/store';
 import { FixtureProvider } from '../src/fixture-provider.js';
-import { MemoryStore } from '../src/memory-store.js';
 import { ingest } from '../src/ingest.js';
 
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), '../../../evals/fixtures');

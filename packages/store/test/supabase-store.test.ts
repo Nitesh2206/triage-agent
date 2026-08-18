@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TriageMessage } from '@triage/core';
-import { SupabaseStore } from '../src/supabase-store.js';
+import { SupabaseStore } from '../src/supabase.js';
 
 const message: TriageMessage = {
   provider: 'fixture',

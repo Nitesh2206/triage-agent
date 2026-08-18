@@ -1,0 +1,20 @@
+{
+  "name": "@triage/mcp-server",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "triage-mcp": "dist/stdio.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "demo": "tsc && node dist/demo.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@triage/core": "workspace:*",
+    "@triage/ingestor": "workspace:*",
+    "@triage/store": "workspace:*",
+    "zod": "^3.23.0"
+  }
+}

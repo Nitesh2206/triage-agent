@@ -1,6 +1,7 @@
 {
   "providerMessageId": "fx-009",
   "provider": "fixture",
+  "authenticity": { "dmarc": "pass", "alignedDomain": "hotmail.com" },
   "from": { "address": "melissa.tran@hotmail.com", "displayName": "Melissa Tran" },
   "to": [{ "address": "admin@brightpath.edu.au" }],
   "subject": "Can I still join the September intake?",

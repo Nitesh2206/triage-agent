@@ -1,6 +1,7 @@
 {
   "providerMessageId": "fx-010",
   "provider": "fixture",
+  "authenticity": { "dmarc": "pass", "alignedDomain": "regionalcouncil.qld.gov.au" },
   "from": { "address": "l.woods@regionalcouncil.qld.gov.au", "displayName": "Lauren Woods" },
   "to": [{ "address": "admin@brightpath.edu.au" }],
   "subject": "Community training partnership enquiry",

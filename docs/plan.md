@@ -41,14 +41,15 @@ External review of phase 1; accepted findings applied:
 - [x] `threat-model.md` (incl. retention, secrets, access control) and `what-broke.md` written
 - Deferred: live Supabase integration test → phase 5 (when the live path exists). Rejected: concurrent-duplicate test (exercises Postgres's constraint guarantee, not our code).
 
-## Phase 2 — Guarded MCP server (no LLM yet)
+## Phase 2 — Guarded MCP server (no LLM yet) ✅ (done)
 
-- [ ] `@triage/mcp-server`: tools `email.apply_label`, `email.draft_reply`, `trello.create_card`, `triage.escalate`, `triage.log_decision`
-- [ ] Trust-tier resolution from verified domain + auth results (never display name)
-- [ ] Middleware: per-call tier check, refusals logged, never thrown away silently
-- [ ] Audit logging middleware → `audit_log` (args, result, tier, tokens)
-- [ ] Unit tests: full tier × tool matrix, refusal paths, spoofed-sender cases
-- [ ] **Accept:** MCP inspector session shows tier-0 sender refused `draft_reply`; audit rows written
+- [x] `@triage/mcp-server`: tools `email_apply_label`, `email_draft_reply`, `trello_create_card`, `triage_escalate`, `triage_log_decision` (underscores — MCP tool names disallow dots)
+- [x] `@triage/store` extracted (ingestor and mcp-server both need persistence; interfaces stay in core)
+- [x] Trust-tier resolution from provider-normalized DMARC + domain alignment (fail closed on missing/invalid evidence; display name never consulted)
+- [x] Fail-closed two-phase audit middleware: authorization row before execution (audit write failure blocks the tool), outcome row after; refusals return `isError` + stable `POLICY_DENIED` / `UNKNOWN_MESSAGE` codes
+- [x] Audit details sanitized: references and lengths only, draft text lives in the `drafts` staging table (migration 0002)
+- [x] Tests: full 3×5 tier×tool matrix, denied-handler-never-executes, audit-failure-blocks-execution, unknown-message, handler-error, sanitization, 7 trust-resolution cases
+- [x] **Accept:** `pnpm demo:mcp` — tier-0 refused `email_draft_reply` with audited refusal; tier-1/2 allowed; unknown id audited as attempt
 
 ## Phase 3 — Agent loop + quarantine + classification
 

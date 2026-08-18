@@ -1,8 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
+import { MemoryStore, SupabaseStore } from '@triage/store';
 import { FixtureProvider } from './fixture-provider.js';
-import { MemoryStore } from './memory-store.js';
-import { SupabaseStore } from './supabase-store.js';
 import { ingest } from './ingest.js';
 
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), '../../../evals/fixtures');

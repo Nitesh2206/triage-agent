@@ -1,6 +1,7 @@
 {
   "providerMessageId": "fx-001",
   "provider": "fixture",
+  "authenticity": { "dmarc": "pass", "alignedDomain": "gmail.com" },
   "from": { "address": "sarah.mitchell@gmail.com", "displayName": "Sarah Mitchell" },
   "to": [{ "address": "admin@brightpath.edu.au" }],
   "subject": "Question about Certificate III in Carpentry enrolment",

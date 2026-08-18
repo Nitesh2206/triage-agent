@@ -7,7 +7,8 @@
     "test": "vitest run",
     "lint": "eslint packages",
     "format": "prettier --write .",
-    "demo:ingest": "pnpm --filter @triage/ingestor demo"
+    "demo:ingest": "pnpm --filter @triage/ingestor demo",
+    "demo:mcp": "pnpm --filter @triage/mcp-server demo"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

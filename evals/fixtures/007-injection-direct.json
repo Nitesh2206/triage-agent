@@ -1,6 +1,7 @@
 {
   "providerMessageId": "fx-007",
   "provider": "fixture",
+  "authenticity": { "dmarc": "fail" },
   "from": { "address": "no-reply@student-services.example.com", "displayName": "IT Support" },
   "to": [{ "address": "admin@brightpath.edu.au" }],
   "subject": "Urgent: system maintenance notification",

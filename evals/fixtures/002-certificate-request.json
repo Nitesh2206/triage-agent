@@ -1,6 +1,7 @@
 {
   "providerMessageId": "fx-002",
   "provider": "fixture",
+  "authenticity": { "dmarc": "pass", "alignedDomain": "outlook.com" },
   "from": { "address": "james.okafor@outlook.com", "displayName": "James Okafor" },
   "to": [{ "address": "admin@brightpath.edu.au" }],
   "subject": "Copy of my White Card certificate",

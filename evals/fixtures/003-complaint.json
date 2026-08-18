@@ -1,6 +1,7 @@
 {
   "providerMessageId": "fx-003",
   "provider": "fixture",
+  "authenticity": { "dmarc": "pass", "alignedDomain": "yahoo.com.au" },
   "from": { "address": "d.nguyen74@yahoo.com.au", "displayName": "Daniel Nguyen" },
   "to": [{ "address": "admin@brightpath.edu.au" }],
   "subject": "Very unhappy with assessment turnaround",

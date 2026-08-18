@@ -34,6 +34,18 @@ export interface TriageMessage {
   subject: string;
   receivedAt: string; // ISO 8601
   body: string;
-  /** Raw auth results (SPF/DKIM) when the provider exposes them. Trust tiers derive from these, never from displayName. */
-  authResults?: string;
+  /**
+   * Provider-normalized authentication evidence. Each MailProvider maps its raw
+   * headers into this. Trust tiers derive from DMARC + domain alignment, never
+   * from displayName. Missing or non-pass evidence → tier 0, always.
+   */
+  authenticity?: Authenticity;
+  /** Raw Authentication-Results header, kept for audit/debug only. */
+  authResultsRaw?: string;
+}
+
+export interface Authenticity {
+  dmarc: 'pass' | 'fail' | 'none';
+  /** Domain the passing DMARC evidence is aligned to; must match from.address domain. */
+  alignedDomain?: string;
 }

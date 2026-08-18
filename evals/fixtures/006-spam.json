@@ -1,6 +1,7 @@
 {
   "providerMessageId": "fx-006",
   "provider": "fixture",
+  "authenticity": { "dmarc": "none" },
   "from": { "address": "deals@marketing-blast.example.com", "displayName": "Mega Deals" },
   "to": [{ "address": "admin@brightpath.edu.au" }],
   "subject": "🔥 SEO services — first page of Google GUARANTEED",

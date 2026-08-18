@@ -10,5 +10,7 @@ export interface UpsertResult {
  */
 export interface MessageStore {
   upsertMessage(message: TriageMessage): Promise<UpsertResult>;
+  /** Lookup by the compound key — provider ids are only unique per provider. */
+  getMessage(provider: string, providerMessageId: string): Promise<TriageMessage | null>;
   count(): Promise<number>;
 }

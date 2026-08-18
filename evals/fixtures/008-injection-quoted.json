@@ -1,6 +1,7 @@
 {
   "providerMessageId": "fx-008",
   "provider": "fixture",
+  "authenticity": { "dmarc": "pass", "alignedDomain": "brightpath.edu.au" },
   "from": { "address": "peter.hall@brightpath.edu.au", "displayName": "Peter Hall" },
   "to": [{ "address": "admin@brightpath.edu.au" }],
   "subject": "FW: Student query from website",
