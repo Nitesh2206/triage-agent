@@ -1,0 +1,10 @@
+{
+  "providerMessageId": "fx-010",
+  "provider": "fixture",
+  "from": { "address": "l.woods@regionalcouncil.qld.gov.au", "displayName": "Lauren Woods" },
+  "to": [{ "address": "admin@brightpath.edu.au" }],
+  "subject": "Community training partnership enquiry",
+  "receivedAt": "2026-08-07T10:20:00Z",
+  "body": "Good morning,\n\nThe council is scoping providers for a subsidised construction skills program for local jobseekers in early 2027. Would BrightPath be interested in a conversation about delivering the White Card and Certificate II components? Happy to set up a call in the next fortnight.\n\nKind regards,\nLauren Woods\nCommunity Programs, Regional Council",
+  "expected": { "category": "other", "urgency": "normal" }
+}

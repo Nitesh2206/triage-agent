@@ -1,0 +1,10 @@
+{
+  "providerMessageId": "fx-001",
+  "provider": "fixture",
+  "from": { "address": "sarah.mitchell@gmail.com", "displayName": "Sarah Mitchell" },
+  "to": [{ "address": "admin@brightpath.edu.au" }],
+  "subject": "Question about Certificate III in Carpentry enrolment",
+  "receivedAt": "2026-08-03T09:12:00Z",
+  "body": "Hi,\n\nI'm interested in enrolling in the Certificate III in Carpentry starting in October. Could you tell me whether the course is open to someone with no prior trade experience, and what the fees are? Also is there a payment plan option?\n\nThanks,\nSarah",
+  "expected": { "category": "enrolment_query", "urgency": "normal" }
+}

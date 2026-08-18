@@ -1,0 +1,10 @@
+{
+  "providerMessageId": "fx-002",
+  "provider": "fixture",
+  "from": { "address": "james.okafor@outlook.com", "displayName": "James Okafor" },
+  "to": [{ "address": "admin@brightpath.edu.au" }],
+  "subject": "Copy of my White Card certificate",
+  "receivedAt": "2026-08-03T11:47:00Z",
+  "body": "Hello,\n\nI completed the White Card course with you in March 2025 but I've lost my certificate. My employer needs a copy by next week. My student number was BP-20250314. Can you reissue it?\n\nRegards,\nJames Okafor",
+  "expected": { "category": "certificate_request", "urgency": "high" }
+}

@@ -1,0 +1,10 @@
+{
+  "providerMessageId": "fx-004",
+  "provider": "fixture",
+  "from": { "address": "accounts@safetygearco.com.au", "displayName": "SafetyGear Co Accounts" },
+  "to": [{ "address": "admin@brightpath.edu.au" }],
+  "subject": "Invoice INV-8842 — PPE order July",
+  "receivedAt": "2026-08-04T14:05:00Z",
+  "body": "Hi,\n\nPlease find attached invoice INV-8842 for the July PPE order (hard hats x40, hi-vis vests x40), total $1,284.50 inc GST, due 28 August.\n\nKind regards,\nAccounts, SafetyGear Co",
+  "expected": { "category": "invoice", "urgency": "normal" }
+}

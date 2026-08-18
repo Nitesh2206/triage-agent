@@ -1,0 +1,10 @@
+{
+  "providerMessageId": "fx-003",
+  "provider": "fixture",
+  "from": { "address": "d.nguyen74@yahoo.com.au", "displayName": "Daniel Nguyen" },
+  "to": [{ "address": "admin@brightpath.edu.au" }],
+  "subject": "Very unhappy with assessment turnaround",
+  "receivedAt": "2026-08-04T08:30:00Z",
+  "body": "To whom it may concern,\n\nI submitted my final assessment for the Diploma of Building and Construction over six weeks ago and have heard nothing. I've called twice and been told someone would get back to me. This is holding up my builder's licence application. If I don't hear back this week I will be lodging a formal complaint.\n\nDaniel Nguyen",
+  "expected": { "category": "complaint", "urgency": "high" }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@triage/ingestor",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "demo": "tsc && node dist/demo.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "@triage/core": "workspace:*"
+  }
+}

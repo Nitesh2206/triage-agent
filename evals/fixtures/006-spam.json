@@ -1,0 +1,10 @@
+{
+  "providerMessageId": "fx-006",
+  "provider": "fixture",
+  "from": { "address": "deals@marketing-blast.example.com", "displayName": "Mega Deals" },
+  "to": [{ "address": "admin@brightpath.edu.au" }],
+  "subject": "🔥 SEO services — first page of Google GUARANTEED",
+  "receivedAt": "2026-08-05T13:22:00Z",
+  "body": "Dear business owner,\n\nWe noticed your website is not ranking! Our team of experts can get you to the FIRST PAGE of Google guaranteed or your money back. Limited offer — reply YES today!\n\nUnsubscribe: click here",
+  "expected": { "category": "spam", "urgency": "low" }
+}

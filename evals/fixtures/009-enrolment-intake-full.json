@@ -1,0 +1,10 @@
+{
+  "providerMessageId": "fx-009",
+  "provider": "fixture",
+  "from": { "address": "melissa.tran@hotmail.com", "displayName": "Melissa Tran" },
+  "to": [{ "address": "admin@brightpath.edu.au" }],
+  "subject": "Can I still join the September intake?",
+  "receivedAt": "2026-08-06T16:55:00Z",
+  "body": "Hi there,\n\nI was told the September intake for the Certificate IV in Work Health and Safety might be full. Is there a waitlist? I need this qualification for a role starting in November so timing matters for me.\n\nThanks so much,\nMelissa",
+  "expected": { "category": "enrolment_query", "urgency": "high" }
+}

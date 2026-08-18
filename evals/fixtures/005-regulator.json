@@ -1,0 +1,10 @@
+{
+  "providerMessageId": "fx-005",
+  "provider": "fixture",
+  "from": { "address": "compliance@regulator.gov.au", "displayName": "VET Regulator Compliance" },
+  "to": [{ "address": "admin@brightpath.edu.au" }],
+  "subject": "Request for records — annual declaration follow-up",
+  "receivedAt": "2026-08-05T10:00:00Z",
+  "body": "Dear Provider,\n\nAs part of the follow-up to your annual declaration, please provide enrolment and completion records for the CPC30220 Certificate III in Carpentry for the period 1 July 2025 to 30 June 2026, within 14 days of this notice.\n\nRegards,\nCompliance Team",
+  "expected": { "category": "regulator", "urgency": "high" }
+}
