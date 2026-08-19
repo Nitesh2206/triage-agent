@@ -70,7 +70,9 @@ The agent loop (Claude Agent SDK) runs a two-tier model strategy:
 - **Drafting** — a stronger model (Sonnet), only invoked when drafting is permitted and warranted
 - Messages flagged as suspicious are **never drafted** — they route straight to a human with the suspicion evidence attached
 
-Model access sits behind an `LLMProvider` interface with two implementations: `claude` (production path) and `gemini` (free-tier development loop and eval judging). Swapping is one config change; the tool layer below is protocol-agnostic and does not change at all.
+Model access sits behind an `LLMProvider` interface with three implementations: `claude` (production path), `gemini` (free-tier development loop and eval judging), and `fake` (deterministic keyword heuristic — keeps `pnpm demo` credential-free). Swapping is one config change; the tool layer below is protocol-agnostic and does not change at all.
+
+*Phase 3 deviation from the original sketch: the loop uses the plain Messages API plus explicit MCP client calls rather than the Agent SDK — the classification pass has zero tools by design, and deterministic code (not the model) drives the tool calls. The Agent SDK becomes worthwhile in phase 4 when drafting needs real agentic tool use.*
 
 ### Stage 4 — Guarded tools (MCP server)
 
@@ -118,7 +120,7 @@ Every row maps to a test: injection fixtures must score 100% (binary: classified
 
 ## 5. Evaluation
 
-*Status: planned (phase 3). The fixture set exists and already includes labeled attack emails; the harness and CI gates do not exist yet — CI currently runs build, lint, and the ingestion unit tests only.*
+*Status: suites 1 and 2 live (phase 3): 31 labeled fixtures (8 attacks + 1 chaos), `evals/run.ts` gates injection at 100% plus a ≤15% benign false-positive counter-gate; CI runs a 10-fixture smoke on push and the full suite on dispatch. Suite 3 (draft quality) arrives with drafting.*
 
 Three suites, run from labeled fixtures in `evals/fixtures/`:
 
@@ -167,7 +169,7 @@ Each phase ends with a working system. Detailed tasks and acceptance bars live i
 | 1 | Core types, `FixtureProvider`, ingestor → Supabase. *System ingests and stores.* | ✅ done |
 | 1.5 | External review remediation: RLS, cursor sync contract, envelope provenance, error-mapping tests. | ✅ done |
 | 2 | MCP server with trust middleware, audit log, unit tests. *Tools governed before any LLM exists.* | ✅ done |
-| 3 | Agent loop, quarantine, classification, injection eval suite. *Pipeline classifies; evals run.* | planned |
+| 3 | Agent loop, quarantine, classification, injection eval suite. *Pipeline classifies; evals run.* | ✅ done |
 | 4 | Drafting, approval queue, minimal dashboard. *Full loop demo-able end to end.* | planned |
 | 5 | Live `GmailProvider`, deployment, cost dashboard. *Runs against a real inbox.* | planned |
 | 6 | `GraphProvider`, LLM-judge suite, webhook/push ingestion, HTTP transport for the MCP server | roadmap |

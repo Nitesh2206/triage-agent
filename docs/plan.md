@@ -50,14 +50,15 @@ External review of phase 1; accepted findings applied:
 - [x] Tests: full 3×5 tier×tool matrix, denied-handler-never-executes, audit-failure-blocks-execution, unknown-message, handler-error, sanitization, 7 trust-resolution cases
 - [x] **Accept:** `pnpm demo:mcp` — tier-0 refused `email_draft_reply` with audited refusal; tier-1/2 allowed; unknown id audited as attempt
 
-## Phase 3 — Agent loop + quarantine + classification
+## Phase 3 — Agent loop + quarantine + classification ✅ (done)
 
-- [ ] `@triage/agent`: `LLMProvider` interface, `claude` (Agent SDK) + `gemini` implementations
-- [ ] Quarantine wrapper: per-message delimited untrusted block; extraction pass = structured output only, zero tools
-- [ ] Classification (small model), suspicion flags, per-message token budget hard cap
-- [ ] Eval harness `evals/run.ts`: classification suite (precision/recall, ~60 fixtures — grow fixture set) and injection suite (100% pass gate)
-- [ ] CI: 10-fixture smoke subset; full suite on demand
-- [ ] **Accept:** `pnpm demo` classifies all fixtures end-to-end through MCP tools; injection suite 100%
+- [x] `@triage/agent`: `LLMProvider` interface; `claude` + `gemini` + `fake` implementations. *Deviation: plain Messages API + explicit MCP client calls, not Agent SDK — classification has zero tools by design and code drives the tool calls; the SDK earns its place in phase 4 when drafting needs real agentic tool use. `fake` (keyword heuristic) keeps `pnpm demo` credential-free.*
+- [x] Quarantine wrapper: per-message nonce-delimited untrusted block; extraction pass = structured output only, zero tools
+- [x] Classification (Haiku / Gemini Flash), suspicion flags (any flag forces category `suspicious` in code), pre-flight estimated-token hard cap (kill before spend) + API max_tokens output kill + post-flight breach alert
+- [x] Eval harness `evals/run.ts`: classification suite (precision/recall/macro-F1, reported not gated), injection suite (100% gate incl. audit-log scan for out-of-policy calls), benign false-positive gate ≤15%, chaos giant-body fixture. *Deviation: 31 fixtures not ~60 — enough for per-category stats; grow later.*
+- [x] CI: 10-fixture smoke on push (Gemini secret, fails loudly if missing), full suite on `workflow_dispatch`; eval jobs never run on `pull_request` so the secret can't meet fork code
+- [x] **Accept:** `pnpm demo` classifies all fixtures end-to-end through MCP tools; injection suite gated at 100%
+- Deferred: `SupabaseCostLog` → phase 5 (memory impl matches migration 0001, drop-in later) · durable `escalations` table → phase 4 (dashboard is its only consumer; escalations persist in audit log) · rerun idempotency operation key → phase 5 (phase-3 stores are fresh-per-run) · majority-vote accuracy gate → later (single-run too noisy)
 
 ## Phase 4 — Drafting + approval queue + dashboard
 
