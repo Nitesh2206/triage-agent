@@ -40,6 +40,11 @@ export class GeminiProvider implements LLMProvider {
         maxOutputTokens: input.maxOutputTokens,
         responseMimeType: 'application/json',
         responseJsonSchema: VERDICT_JSON_SCHEMA,
+        // 2.5-flash thinks by default and thinking tokens count against
+        // maxOutputTokens (512) — complex inputs hit MAX_TOKENS with no text.
+        // ponytail: assumes a 2.5-flash-class model; GEMINI_MODEL overrides that
+        // can't disable thinking (2.5-pro) will error loudly here.
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
     const finish = response.candidates?.[0]?.finishReason;

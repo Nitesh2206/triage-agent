@@ -45,6 +45,8 @@ export interface TriageResult {
   providerMessageId: string;
   verdict: ClassificationVerdict | null;
   aborted?: 'INPUT_TOO_LARGE' | 'CLASSIFY_FAILED';
+  /** Provider error text for CLASSIFY_FAILED — for operator logs; audit stays sanitized. */
+  abortReason?: string;
   /** Tool calls that returned isError — surfaced, never swallowed. */
   actionErrors?: { tool: ToolName; code: string }[];
 }
@@ -118,10 +120,9 @@ export async function triageMessage(deps: TriageDeps, message: TriageMessage): P
       maxOutputTokens: deps.budget.maxOutputTokens,
     });
   } catch (e) {
-    await escalate(
-      `classification failed: ${e instanceof Error ? e.message : String(e)}`.slice(0, 200),
-    );
-    return { providerMessageId, verdict: null, aborted: 'CLASSIFY_FAILED', actionErrors };
+    const abortReason = (e instanceof Error ? e.message : String(e)).slice(0, 200);
+    await escalate(`classification failed: ${abortReason}`);
+    return { providerMessageId, verdict: null, aborted: 'CLASSIFY_FAILED', abortReason, actionErrors };
   }
 
   const { usage } = outcome;

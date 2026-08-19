@@ -69,6 +69,9 @@ for (const message of all.filter((m) => expected.has(m.providerMessageId))) {
     await new Promise((r) => setTimeout(r, 15_000));
     result = await triageMessage(deps, message);
   }
+  if (result.aborted === 'CLASSIFY_FAILED') {
+    console.error(`  ${message.providerMessageId} classify failed: ${result.abortReason}`);
+  }
   results.set(message.providerMessageId, result);
 }
 await client.close();
