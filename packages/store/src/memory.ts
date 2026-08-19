@@ -1,6 +1,8 @@
 import type {
   AuditEntry,
   AuditLog,
+  CostEntry,
+  CostLog,
   DraftStore,
   MessageStore,
   TriageMessage,
@@ -39,6 +41,18 @@ export class MemoryAuditLog implements AuditLog {
   }
 
   async list(): Promise<AuditEntry[]> {
+    return [...this.entries];
+  }
+}
+
+export class MemoryCostLog implements CostLog {
+  private readonly entries: CostEntry[] = [];
+
+  async record(entry: CostEntry): Promise<void> {
+    this.entries.push(entry);
+  }
+
+  async list(): Promise<CostEntry[]> {
     return [...this.entries];
   }
 }
