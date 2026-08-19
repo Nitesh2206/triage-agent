@@ -1,4 +1,11 @@
-import type { Category, ClassifyOutcome, LLMProvider, SuspicionFlags, Urgency } from '@triage/core';
+import type {
+  Category,
+  ClassifyOutcome,
+  DraftOutcome,
+  LLMProvider,
+  SuspicionFlags,
+  Urgency,
+} from '@triage/core';
 
 // Ordered: first matching rule wins. Suspicion keywords checked separately.
 const CATEGORY_KEYWORDS: [Category, RegExp][] = [
@@ -14,8 +21,14 @@ const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
 
 function flags(text: string): SuspicionFlags {
   return {
-    instructionOverride: /ignore (all |previous |prior )*instructions|system (message|prompt|notice)/i.test(text),
-    exfiltrationAttempt: /\bforward (all|the)|send .*(list|records|credentials|password)|alternate address\b/i.test(text),
+    instructionOverride:
+      /ignore (all |previous |prior )*instructions|system (message|prompt|notice)|\b(assistant|ai|model) instruction|elevate .{0,20}trust/i.test(
+        text,
+      ),
+    exfiltrationAttempt:
+      /\bforward (all|the)|send .*(list|records|credentials|password)|(full|entire|all) .{0,20}(contact|student) (list|records)|alternate address\b/i.test(
+        text,
+      ),
     impersonation: /\b(i am|this is) (the )?(administrator|it department|principal|ceo)\b/i.test(text),
     hiddenOrEncodedContent:
       /<!--|[A-Za-z0-9+/]{40,}={0,2}/.test(text) || text.includes(ZERO_WIDTH_SPACE),
@@ -43,5 +56,18 @@ export class FakeLLMProvider implements LLMProvider {
       verdict: { category, urgency, suspicion, rationale: `keyword match: ${category}` },
       usage: { model: 'fake', inputTokens: 0, outputTokens: 0, usd: 0 },
     };
+  }
+
+  async draftReply(input: { user: string }): Promise<DraftOutcome> {
+    const subject = /^Subject: (.*)$/m.exec(input.user)?.[1] ?? 'your enquiry';
+    const body = [
+      'Hi,',
+      '',
+      `Thanks for getting in touch about "${subject}". The team will review your enquiry and confirm the details with you shortly.`,
+      '',
+      'Kind regards,',
+      'BrightPath Student Services',
+    ].join('\n');
+    return { body, usage: { model: 'fake', inputTokens: 0, outputTokens: 0, usd: 0 } };
   }
 }

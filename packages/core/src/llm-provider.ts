@@ -32,12 +32,23 @@ export interface ClassifyOutcome {
   usage: LLMUsage;
 }
 
+export interface DraftOutcome {
+  /** Reply body text. Staged via email_draft_reply — never sent by the agent. */
+  body: string;
+  usage: LLMUsage;
+}
+
 /**
  * Classification pass: structured output only, ZERO tool access.
  * Implementations must validate the model's JSON and throw on any deviation —
  * callers fail closed (escalate to a human).
+ *
+ * Draft pass: plain text reply body, still zero tool access — code stages the
+ * draft through the guarded MCP tool. Implementations throw on truncation or
+ * empty output; callers surface the failure without aborting triage.
  */
 export interface LLMProvider {
   readonly name: string;
   classify(input: { system: string; user: string; maxOutputTokens: number }): Promise<ClassifyOutcome>;
+  draftReply(input: { system: string; user: string; maxOutputTokens: number }): Promise<DraftOutcome>;
 }

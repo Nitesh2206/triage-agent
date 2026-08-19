@@ -1,0 +1,22 @@
+{
+  "name": "@triage/dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node --env-file-if-exists=../../.env node_modules/next/dist/bin/next dev -H 127.0.0.1",
+    "build": "next build",
+    "start": "node --env-file-if-exists=../../.env node_modules/next/dist/bin/next start -H 127.0.0.1"
+  },
+  "dependencies": {
+    "@triage/core": "workspace:*",
+    "@triage/store": "workspace:*",
+    "next": "^15.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}

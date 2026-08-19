@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "demo": "tsc && node dist/demo.js"
+    "demo": "tsc && node --env-file-if-exists=../../.env dist/demo.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

@@ -19,6 +19,18 @@ const message: TriageMessage = {
   authenticity: { dmarc: 'pass', alignedDomain: 'example.com' },
 };
 
+/** Tier-2 sender: internal domain with aligned DMARC pass. */
+const internalMessage: TriageMessage = {
+  provider: 'fixture',
+  providerMessageId: 'fx-t2',
+  from: { address: 'megan@brightpath.edu.au' },
+  to: [{ address: 'admin@brightpath.edu.au' }],
+  subject: 'Intake dates',
+  receivedAt: '2026-08-19T00:00:00Z',
+  body: 'Student asks about October intake.',
+  authenticity: { dmarc: 'pass', alignedDomain: 'brightpath.edu.au' },
+};
+
 const noFlags = {
   instructionOverride: false,
   exfiltrationAttempt: false,
@@ -33,6 +45,10 @@ function llmReturning(verdict: ClassificationVerdict, tokens = { in: 500, out: 5
       verdict,
       usage: { model: 'mock', inputTokens: tokens.in, outputTokens: tokens.out, usd: 0.001 },
     })),
+    draftReply: vi.fn(async () => ({
+      body: 'Hi, thanks for your enquiry.',
+      usage: { model: 'mock-draft', inputTokens: 600, outputTokens: 120, usd: 0.002 },
+    })),
   };
 }
 
@@ -45,6 +61,7 @@ describe('triageMessage', () => {
   beforeEach(async () => {
     const messages = new MemoryStore();
     await messages.upsertMessage(message);
+    await messages.upsertMessage(internalMessage);
     audit = new MemoryAuditLog();
     costs = new MemoryCostLog();
     drafts = new MemoryDraftStore();
@@ -55,7 +72,7 @@ describe('triageMessage', () => {
   });
 
   function deps(llm: LLMProvider, budget = DEFAULT_BUDGET): TriageDeps {
-    return { llm, mcp: client, costs, audit, budget };
+    return { llm, mcp: client, costs, audit, budget, trust };
   }
 
   it('benign verdict: exactly log_decision + apply_label, no escalate, no drafts', async () => {
@@ -113,7 +130,7 @@ describe('triageMessage', () => {
 
   it('actual usage over maxTotalTokens: cost recorded, breach alert, verdict still acted on', async () => {
     const verdict = { category: 'invoice', urgency: 'normal', suspicion: noFlags, rationale: 'inv' } as const;
-    const llm = llmReturning(verdict, { in: 9000, out: 500 });
+    const llm = llmReturning(verdict, { in: 13_000, out: 500 });
     const result = await triageMessage(deps(llm), message);
     expect(result.verdict?.category).toBe('invoice');
     expect(await costs.list()).toHaveLength(1);
@@ -149,7 +166,7 @@ describe('triageMessage', () => {
       rationale: 'x',
     } as const;
     const result = await triageMessage(
-      { llm: llmReturning(verdict), mcp: flaky, costs, audit, budget: DEFAULT_BUDGET },
+      { llm: llmReturning(verdict), mcp: flaky, costs, audit, budget: DEFAULT_BUDGET, trust },
       message,
     );
     // First call (escalate) died on transport; log_decision and apply_label still ran.
@@ -171,6 +188,81 @@ describe('triageMessage', () => {
       (e) => e.action === 'triage_escalate' && e.phase === 'authorization',
     );
     expect(row?.detail?.flags).toEqual(['exfiltrationAttempt']);
+  });
+
+  it('tier-2 draftable: draft staged via MCP, draft cost row recorded', async () => {
+    const verdict = { category: 'enrolment_query', urgency: 'normal', suspicion: noFlags, rationale: 'q' } as const;
+    const llm = llmReturning(verdict);
+    const result = await triageMessage(deps(llm), internalMessage);
+    expect(result.drafted).toBe(true);
+    expect(llm.draftReply).toHaveBeenCalledOnce();
+    expect(await drafts.count()).toBe(1);
+    const stages = (await costs.list()).map((c) => c.stage);
+    expect(stages).toEqual(['classify', 'draft']);
+    const actions = (await audit.list()).map((e) => e.action);
+    expect(actions.filter((a) => a === 'email_draft_reply')).toHaveLength(2); // auth + outcome
+  });
+
+  it('tier-0 sender: draftReply never called even for a draftable category', async () => {
+    const verdict = { category: 'enrolment_query', urgency: 'normal', suspicion: noFlags, rationale: 'q' } as const;
+    const llm = llmReturning(verdict);
+    const result = await triageMessage(deps(llm), message); // example.com → tier 0
+    expect(result.drafted).toBeUndefined();
+    expect(llm.draftReply).not.toHaveBeenCalled();
+    expect(await drafts.count()).toBe(0);
+  });
+
+  it('tier-2 suspicious: never drafted', async () => {
+    const verdict = {
+      category: 'enrolment_query',
+      urgency: 'normal',
+      suspicion: { ...noFlags, instructionOverride: true },
+      rationale: 'x',
+    } as const;
+    const llm = llmReturning(verdict);
+    const result = await triageMessage(deps(llm), internalMessage);
+    expect(result.verdict?.category).toBe('suspicious');
+    expect(result.drafted).toBeUndefined();
+    expect(llm.draftReply).not.toHaveBeenCalled();
+    expect(await drafts.count()).toBe(0);
+  });
+
+  it('tier-2 non-draftable category: no draft', async () => {
+    const verdict = { category: 'complaint', urgency: 'high', suspicion: noFlags, rationale: 'c' } as const;
+    const llm = llmReturning(verdict);
+    await triageMessage(deps(llm), internalMessage);
+    expect(llm.draftReply).not.toHaveBeenCalled();
+    expect(await drafts.count()).toBe(0);
+  });
+
+  it('draftReply throw: DRAFT_FAILED surfaced, classification actions intact', async () => {
+    const verdict = { category: 'enrolment_query', urgency: 'normal', suspicion: noFlags, rationale: 'q' } as const;
+    const llm: LLMProvider = {
+      ...llmReturning(verdict),
+      draftReply: async () => {
+        throw new Error('model down');
+      },
+    };
+    const result = await triageMessage(deps(llm), internalMessage);
+    expect(result.verdict?.category).toBe('enrolment_query');
+    expect(result.drafted).toBeUndefined();
+    expect(result.actionErrors).toEqual([{ tool: 'email_draft_reply', code: 'DRAFT_FAILED' }]);
+    expect((await audit.list()).map((e) => e.action)).toContain('email_apply_label');
+    expect(await drafts.count()).toBe(0);
+  });
+
+  it('draft skipped when cumulative budget cannot cover it', async () => {
+    const verdict = { category: 'enrolment_query', urgency: 'normal', suspicion: noFlags, rationale: 'q' } as const;
+    const llm = llmReturning(verdict, { in: 500, out: 50 });
+    const tight = { ...DEFAULT_BUDGET, maxTotalTokens: 600 };
+    const result = await triageMessage(deps(llm, tight), internalMessage);
+    expect(result.drafted).toBeUndefined();
+    expect(llm.draftReply).not.toHaveBeenCalled();
+    const skip = (await audit.list()).find(
+      (e) => e.action === 'token_budget_breach' && e.detail?.kind === 'draft_skipped_over_total',
+    );
+    expect(skip?.allowed).toBe(false);
+    expect(await drafts.count()).toBe(0);
   });
 
   it('records a correct cost row on the happy path', async () => {

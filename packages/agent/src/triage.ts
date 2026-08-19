@@ -1,13 +1,16 @@
-import type {
-  AuditLog,
-  ClassificationVerdict,
-  CostLog,
-  LLMProvider,
-  ToolName,
-  TriageMessage,
+import {
+  resolveTrustTier,
+  type AuditLog,
+  type Category,
+  type ClassificationVerdict,
+  type CostLog,
+  type LLMProvider,
+  type ToolName,
+  type TriageMessage,
+  type TrustConfig,
 } from '@triage/core';
 import { quarantine } from './quarantine.js';
-import { SYSTEM_PROMPT } from './prompt.js';
+import { DRAFT_SYSTEM_PROMPT, SYSTEM_PROMPT } from './prompt.js';
 
 /** Subset of the MCP SDK Client the loop needs — injectable in tests. */
 export interface McpCaller {
@@ -22,6 +25,8 @@ export interface TriageBudget {
   maxInputTokens: number;
   /** Passed to the API as max_tokens — the output hard kill. */
   maxOutputTokens: number;
+  /** max_tokens for the draft pass (stronger model, longer output). */
+  maxDraftOutputTokens: number;
   /** Post-flight alert threshold on actual total tokens (catches estimator drift). */
   maxTotalTokens: number;
 }
@@ -29,8 +34,13 @@ export interface TriageBudget {
 export const DEFAULT_BUDGET: TriageBudget = {
   maxInputTokens: 5_000,
   maxOutputTokens: 512,
-  maxTotalTokens: 8_000,
+  maxDraftOutputTokens: 1_024,
+  // Now covers classify + draft cumulatively: worst case ~(5000+512) + (5000+1024).
+  maxTotalTokens: 12_000,
 };
+
+/** Routine categories the agent may draft replies for. Everything else stays human. */
+export const DRAFTABLE_CATEGORIES: readonly Category[] = ['enrolment_query', 'certificate_request'];
 
 export interface TriageDeps {
   llm: LLMProvider;
@@ -39,6 +49,12 @@ export interface TriageDeps {
   /** System alerts (budget breach) only — tool call auditing lives in the MCP guard. */
   audit: AuditLog;
   budget: TriageBudget;
+  /**
+   * Trust config for the pre-draft tier gate. Cheap code check that avoids
+   * spending draft-model tokens the MCP guard would refuse anyway — the guard
+   * remains the enforcement authority.
+   */
+  trust: TrustConfig;
 }
 
 export interface TriageResult {
@@ -47,6 +63,8 @@ export interface TriageResult {
   aborted?: 'INPUT_TOO_LARGE' | 'CLASSIFY_FAILED';
   /** Provider error text for CLASSIFY_FAILED — for operator logs; audit stays sanitized. */
   abortReason?: string;
+  /** True when a reply draft was staged for human approval. */
+  drafted?: boolean;
   /** Tool calls that returned isError — surfaced, never swallowed. */
   actionErrors?: { tool: ToolName; code: string }[];
 }
@@ -125,43 +143,53 @@ export async function triageMessage(deps: TriageDeps, message: TriageMessage): P
     return { providerMessageId, verdict: null, aborted: 'CLASSIFY_FAILED', abortReason, actionErrors };
   }
 
+  const recordCost = async (stage: 'classify' | 'draft', usage: typeof outcome.usage): Promise<void> => {
+    try {
+      await deps.costs.record({
+        provider,
+        providerMessageId,
+        stage,
+        model: usage.model,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        usd: usage.usd,
+      });
+    } catch {
+      // Spend already happened; losing the cost row must not abort routing. Best-effort alert.
+      await deps.audit
+        .record({
+          actor: 'system',
+          action: 'cost_log_failure',
+          phase: 'outcome',
+          allowed: true,
+          provider,
+          providerMessageId,
+          detail: { stage, ...usage },
+        })
+        .catch(() => {});
+    }
+  };
+
   const { usage } = outcome;
-  try {
-    await deps.costs.record({
-      provider,
-      providerMessageId,
-      stage: 'classify',
-      model: usage.model,
-      inputTokens: usage.inputTokens,
-      outputTokens: usage.outputTokens,
-      usd: usage.usd,
-    });
-  } catch {
-    // Spend already happened; losing the cost row must not abort routing. Best-effort alert.
-    await deps.audit
-      .record({
+  await recordCost('classify', usage);
+  // Cumulative per-message spend across classify + draft. Breach is an alert,
+  // not a kill: spend is already bounded by the per-pass max_tokens caps.
+  let totalTokens = 0;
+  const checkTotal = async (stage: 'classify' | 'draft', u: typeof usage): Promise<void> => {
+    totalTokens += u.inputTokens + u.outputTokens;
+    if (totalTokens > deps.budget.maxTotalTokens) {
+      await deps.audit.record({
         actor: 'system',
-        action: 'cost_log_failure',
+        action: 'token_budget_breach',
         phase: 'outcome',
         allowed: true,
         provider,
         providerMessageId,
-        detail: { ...usage },
-      })
-      .catch(() => {});
-  }
-  if (usage.inputTokens + usage.outputTokens > deps.budget.maxTotalTokens) {
-    // Spend already happened and is bounded by the pre-flight caps; alert, don't discard.
-    await deps.audit.record({
-      actor: 'system',
-      action: 'token_budget_breach',
-      phase: 'outcome',
-      allowed: true,
-      provider,
-      providerMessageId,
-      detail: { kind: 'actual_over_total', ...usage },
-    });
-  }
+        detail: { kind: 'actual_over_total', stage, totalTokens, ...u },
+      });
+    }
+  };
+  await checkTotal('classify', usage);
 
   const verdict = { ...outcome.verdict };
   if (Object.values(verdict.suspicion).some(Boolean) && verdict.category !== 'suspicious') {
@@ -183,5 +211,51 @@ export async function triageMessage(deps: TriageDeps, message: TriageMessage): P
   });
   await call('email_apply_label', { ...target, label: verdict.category });
 
-  return { providerMessageId, verdict, ...(actionErrors.length ? { actionErrors } : {}) };
+  // Draft pass: tier 2 + routine category + clean verdict only. All three gates
+  // are code; suspicious messages were escalated above and are never drafted.
+  let drafted = false;
+  if (
+    verdict.category !== 'suspicious' &&
+    DRAFTABLE_CATEGORIES.includes(verdict.category) &&
+    resolveTrustTier(message, deps.trust) === 2
+  ) {
+    // Pre-flight on the cumulative budget: don't start a draft the message's
+    // total budget can't cover. The message is already classified and labeled;
+    // it just goes out undrafted.
+    const projected =
+      totalTokens + estimateInputTokens(user) + deps.budget.maxDraftOutputTokens;
+    if (projected > deps.budget.maxTotalTokens) {
+      await deps.audit.record({
+        actor: 'system',
+        action: 'token_budget_breach',
+        phase: 'attempt',
+        allowed: false,
+        provider,
+        providerMessageId,
+        detail: { kind: 'draft_skipped_over_total', totalTokens, projected },
+      });
+    } else {
+      try {
+        const draft = await deps.llm.draftReply({
+          system: DRAFT_SYSTEM_PROMPT,
+          user,
+          maxOutputTokens: deps.budget.maxDraftOutputTokens,
+        });
+        await recordCost('draft', draft.usage);
+        await checkTotal('draft', draft.usage);
+        await call('email_draft_reply', { ...target, body: draft.body });
+        drafted = !actionErrors.some((e) => e.tool === 'email_draft_reply');
+      } catch {
+        // Draft failure never undoes the classification actions already taken.
+        actionErrors.push({ tool: 'email_draft_reply', code: 'DRAFT_FAILED' });
+      }
+    }
+  }
+
+  return {
+    providerMessageId,
+    verdict,
+    ...(drafted ? { drafted } : {}),
+    ...(actionErrors.length ? { actionErrors } : {}),
+  };
 }

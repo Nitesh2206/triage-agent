@@ -1,7 +1,12 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type {
+  Approval,
+  ApprovalStore,
   AuditEntry,
   AuditLog,
+  CostEntry,
+  CostLog,
+  DraftRecord,
   DraftStore,
   MessageStore,
   TriageMessage,
@@ -141,11 +146,136 @@ export class SupabaseDraftStore implements DraftStore {
     return { draftId: String(data.id) };
   }
 
+  async getDraft(draftId: string): Promise<DraftRecord | null> {
+    const { data, error } = await this.client
+      .from('drafts')
+      .select('*')
+      .eq('id', Number(draftId))
+      .maybeSingle();
+    if (error) throw new Error(`draft select failed: ${error.message}`);
+    return data ? mapDraft(data) : null;
+  }
+
+  async listDrafts(): Promise<DraftRecord[]> {
+    const { data, error } = await this.client.from('drafts').select('*').order('id');
+    if (error) throw new Error(`draft list failed: ${error.message}`);
+    return (data ?? []).map(mapDraft);
+  }
+
   async count(): Promise<number> {
     const { count, error } = await this.client
       .from('drafts')
       .select('*', { count: 'exact', head: true });
     if (error) throw new Error(`draft count failed: ${error.message}`);
     return count ?? 0;
+  }
+}
+
+function mapDraft(row: {
+  id: number;
+  provider: string;
+  provider_message_id: string;
+  body: string;
+  created_at: string;
+}): DraftRecord {
+  return {
+    draftId: String(row.id),
+    provider: row.provider,
+    providerMessageId: row.provider_message_id,
+    body: row.body,
+    createdAt: row.created_at,
+  };
+}
+
+/**
+ * State transitions are conditional updates on the current status — the WHERE
+ * clause is the lock. Zero rows updated = someone else moved the row first.
+ */
+export class SupabaseApprovalStore implements ApprovalStore {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async list(): Promise<Approval[]> {
+    const { data, error } = await this.client.from('approvals').select('*').order('id');
+    if (error) throw new Error(`approvals list failed: ${error.message}`);
+    return (data ?? []).map((row) => ({
+      draftId: String(row.draft_id),
+      status: row.status,
+      editedBody: row.edited_body ?? undefined,
+      decidedBy: row.decided_by ?? undefined,
+      decidedAt: row.decided_at ?? undefined,
+      sentAt: row.sent_at ?? undefined,
+    }));
+  }
+
+  async decide(
+    draftId: string,
+    decision: { status: 'approved' | 'rejected'; editedBody?: string; decidedBy: string },
+  ): Promise<void> {
+    const { data, error } = await this.client
+      .from('approvals')
+      .update({
+        status: decision.status,
+        edited_body: decision.editedBody ?? null,
+        decided_by: decision.decidedBy,
+        decided_at: new Date().toISOString(),
+      })
+      .eq('draft_id', Number(draftId))
+      .eq('status', 'pending')
+      .select('id');
+    if (error) throw new Error(`approval decide failed: ${error.message}`);
+    if ((data ?? []).length === 0) throw new Error(`approval ${draftId} is not pending`);
+  }
+
+  async claimForSend(draftId: string): Promise<boolean> {
+    const { data, error } = await this.client
+      .from('approvals')
+      .update({ status: 'sending' })
+      .eq('draft_id', Number(draftId))
+      .eq('status', 'approved')
+      .select('id');
+    if (error) throw new Error(`approval claim failed: ${error.message}`);
+    return (data ?? []).length > 0;
+  }
+
+  async markSent(draftId: string): Promise<void> {
+    const { data, error } = await this.client
+      .from('approvals')
+      .update({ status: 'sent', sent_at: new Date().toISOString() })
+      .eq('draft_id', Number(draftId))
+      .eq('status', 'sending')
+      .select('id');
+    if (error) throw new Error(`approval markSent failed: ${error.message}`);
+    if ((data ?? []).length === 0) throw new Error(`approval ${draftId} is not in 'sending'`);
+  }
+}
+
+export class SupabaseCostLog implements CostLog {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async record(entry: CostEntry): Promise<void> {
+    const { error } = await this.client.from('costs').insert({
+      provider: entry.provider,
+      provider_message_id: entry.providerMessageId,
+      stage: entry.stage,
+      model: entry.model,
+      input_tokens: entry.inputTokens,
+      output_tokens: entry.outputTokens,
+      usd: entry.usd,
+    });
+    if (error) throw new Error(`cost write failed: ${error.message}`);
+  }
+
+  async list(): Promise<CostEntry[]> {
+    const { data, error } = await this.client.from('costs').select('*').order('id');
+    if (error) throw new Error(`cost read failed: ${error.message}`);
+    return (data ?? []).map((row) => ({
+      provider: row.provider,
+      providerMessageId: row.provider_message_id,
+      stage: row.stage,
+      model: row.model,
+      inputTokens: row.input_tokens,
+      outputTokens: row.output_tokens,
+      usd: Number(row.usd),
+    }));
   }
 }

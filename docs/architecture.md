@@ -66,8 +66,8 @@ The first model pass is *structured extraction only*: the model must emit a JSON
 
 The agent loop (Claude Agent SDK) runs a two-tier model strategy:
 
-- **Classification** — a small fast model (Haiku), structured output, fractions of a cent per message
-- **Drafting** — a stronger model (Sonnet), only invoked when drafting is permitted and warranted
+- **Classification** — a small fast model (`claude-haiku-4-5`), structured output, fractions of a cent per message
+- **Drafting** — a stronger model (`claude-sonnet-5`), only invoked when drafting is permitted and warranted (tier 2, routine category, clean verdict)
 - Messages flagged as suspicious are **never drafted** — they route straight to a human with the suspicion evidence attached
 
 Model access sits behind an `LLMProvider` interface with three implementations: `claude` (production path), `gemini` (free-tier development loop and eval judging), and `fake` (deterministic keyword heuristic — keeps `pnpm demo` credential-free). Swapping is one config change; the tool layer below is protocol-agnostic and does not change at all.
@@ -93,7 +93,7 @@ Each call is audit-logged with arguments, result, trust tier, and token cost —
 
 ### Stage 5 — Human approval
 
-Drafts land in an approval queue in Supabase. A human reviews each draft on the dashboard and approves, edits, or rejects. Only an approved draft is sent, and sending is performed by the queue worker — the agent has no send capability at any trust tier.
+Drafts land in an approval queue in Supabase — every draft insert creates its `pending` approval row atomically (DB trigger). A human reviews each draft on the dashboard and approves, edits, or rejects. Only an approved draft is sent, and sending is performed by the queue worker (`processApprovals`) — the agent has no send capability at any trust tier. The worker claims each row with an atomic `approved → sending` transition so concurrent workers cannot double-send, and the recipient and thread scope are fixed in code to the source message's sender and thread. (Phase 4 sender is simulated; the real Gmail sender with a provider-side idempotency key is phase 5.)
 
 ### Stage 6 — Observe
 
@@ -120,7 +120,7 @@ Every row maps to a test: injection fixtures must score 100% (binary: classified
 
 ## 5. Evaluation
 
-*Status: suites 1 and 2 live (phase 3): 31 labeled fixtures (8 attacks + 1 chaos), `evals/run.ts` gates injection at 100% plus a ≤15% benign false-positive counter-gate; CI runs a 10-fixture smoke on push and the full suite on dispatch. Suite 3 (draft quality) arrives with drafting.*
+*Status: suites 1 and 2 live (phase 3): 31 labeled fixtures (8 attacks + 1 chaos), `evals/run.ts` gates injection at 100% plus a ≤15% benign false-positive counter-gate; CI runs a 10-fixture smoke on push and the full suite on dispatch. Phase 4 added deterministic draft-scope gates: zero drafts on attack fixtures, drafts only for tier-2 draftable benign fixtures. Suite 3 (LLM-judge draft quality) remains roadmap.*
 
 Three suites, run from labeled fixtures in `evals/fixtures/`:
 
@@ -170,7 +170,7 @@ Each phase ends with a working system. Detailed tasks and acceptance bars live i
 | 1.5 | External review remediation: RLS, cursor sync contract, envelope provenance, error-mapping tests. | ✅ done |
 | 2 | MCP server with trust middleware, audit log, unit tests. *Tools governed before any LLM exists.* | ✅ done |
 | 3 | Agent loop, quarantine, classification, injection eval suite. *Pipeline classifies; evals run.* | ✅ done |
-| 4 | Drafting, approval queue, minimal dashboard. *Full loop demo-able end to end.* | planned |
+| 4 | Drafting, approval queue, minimal dashboard. *Full loop demo-able end to end.* | ✅ done |
 | 5 | Live `GmailProvider`, deployment, cost dashboard. *Runs against a real inbox.* | planned |
 | 6 | `GraphProvider`, LLM-judge suite, webhook/push ingestion, HTTP transport for the MCP server | roadmap |
 

@@ -10,8 +10,8 @@ Working document: phases, tasks, acceptance bars. Check things off as they land;
 
 ## Prerequisites
 
-- [x] Node LTS + pnpm
-- [ ] Supabase project (free tier) — needed from phase 4 (dashboard) / phase 5 (live)
+- [x] Node LTS + pnpm (≥22.9 — demo/dashboard scripts use `--env-file-if-exists`)
+- [x] Supabase project (free tier) — needed from phase 4 (dashboard) / phase 5 (live)
 - [ ] Anthropic API key — needed from phase 3
 - [ ] Google AI Studio key (free) — dev loop and eval judging, phase 3
 - [ ] Trello workspace + API key — phase 2 (live card creation can be stubbed until then)
@@ -58,19 +58,23 @@ External review of phase 1; accepted findings applied:
 - [x] Eval harness `evals/run.ts`: classification suite (precision/recall/macro-F1, reported not gated), injection suite (100% gate incl. audit-log scan for out-of-policy calls), benign false-positive gate ≤15%, chaos giant-body fixture. *Deviation: 31 fixtures not ~60 — enough for per-category stats; grow later.*
 - [x] CI: 10-fixture smoke on push (Gemini secret, fails loudly if missing), full suite on `workflow_dispatch`; eval jobs never run on `pull_request` so the secret can't meet fork code
 - [x] **Accept:** `pnpm demo` classifies all fixtures end-to-end through MCP tools; injection suite gated at 100%
-- Deferred: `SupabaseCostLog` → phase 5 (memory impl matches migration 0001, drop-in later) · durable `escalations` table → phase 4 (dashboard is its only consumer; escalations persist in audit log) · rerun idempotency operation key → phase 5 (phase-3 stores are fresh-per-run) · majority-vote accuracy gate → later (single-run too noisy)
+- Deferred: durable `escalations` table (dashboard reads escalations from the audit log) · rerun idempotency operation key → phase 5 (phase-3 stores are fresh-per-run) · majority-vote accuracy gate → later (single-run too noisy). `SupabaseCostLog` was un-deferred in phase 4 — the cost dashboard consumes it.
 
-## Phase 4 — Drafting + approval queue + dashboard
+## Phase 4 — Drafting + approval queue + dashboard ✅ (done)
 
-- [ ] Draft generation (stronger model; tier 2 only; scope limited to source thread)
-- [ ] `approvals` table + queue worker — send happens only post-approval, agent has no send tool
-- [ ] `@triage/dashboard` (Next.js): queue with approve/edit/reject, audit log incl. blocked calls, cost table
-- [ ] Deliberate RLS policies for dashboard reads
-- [ ] **Accept:** fixture email → draft → approve on dashboard → simulated send recorded
+- [x] Draft generation: `draftReply` on `LLMProvider` (claude → `claude-sonnet-5`, gemini → flash, fake → template); code gates in the loop — tier 2 AND draftable category (`enrolment_query`, `certificate_request`) AND not suspicious; MCP guard stays the enforcement authority
+- [x] Migration 0003: `approvals` (pending → approved|rejected; approved → sending → sent), created atomically with each draft by DB trigger; costs table gains (provider, provider_message_id)
+- [x] Queue worker `processApprovals` — the only send path; atomic `claimForSend` (conditional update) prevents double-send; recipient/thread scope fixed in code to the source message; phase-4 sender is simulated. *Deviation: provider-side idempotency key deferred to phase 5's real Gmail sender.*
+- [x] `@triage/dashboard` (Next.js 15): approval queue with approve/edit/reject (server actions run the worker inline), audit log incl. refusals, per-stage cost table; Supabase-backed via root `.env`. Decisions fail closed unless `TRIAGE_ALLOW_APPROVALS=1` (server-side env, never headers — spoofable); dev/start bind to 127.0.0.1
+- [x] Eval draft gates (deterministic): zero drafts for attack fixtures; drafts only for tier-2 draftable benign. LLM-judge draft-quality suite stays roadmap.
+- [x] **Accept:** fixture email → draft → approve on dashboard → simulated send recorded in audit log
+- *Deviation (reviewed): RLS read policies NOT added — dashboard is local-only on the service role in phase 4; deliberate scoped policies land with real auth + deploy in phase 5. `authenticated using (true)` would have exposed every sensitive row.*
 
 ## Phase 5 — Live Gmail + deployment
 
 - [ ] `GmailProvider`: OAuth, historyId cursor via `sync_state`, expiry → full resync, retry/backoff
+- [ ] Real `MailSender` (Gmail) with provider-side idempotency key; resolve In-Reply-To from the thread
+- [ ] Dashboard auth + deliberate scoped RLS read policies (deferred from phase 4)
 - [ ] Cursor persistence: store page first, advance cursor after — replay-safe by idempotency
 - [ ] Live Supabase integration test (insert, duplicate, count, error propagation) in CI
 - [ ] Retention/deletion job per threat model

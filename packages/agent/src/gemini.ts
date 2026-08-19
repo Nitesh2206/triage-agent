@@ -1,8 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
-import type { ClassifyOutcome, LLMProvider } from '@triage/core';
+import type { ClassifyOutcome, DraftOutcome, LLMProvider } from '@triage/core';
 import { VERDICT_JSON_SCHEMA, VerdictSchema } from './schema.js';
 
-export const GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash';
+// 2.5-generation models are retired for new accounts (404); 3.5-flash accepts
+// thinkingBudget 0, 3.5-flash-lite does not.
+export const GEMINI_DEFAULT_MODEL = 'gemini-3.5-flash';
 
 /** Minimal client shape so unit tests can inject a stub. */
 export interface GeminiClient {
@@ -56,6 +58,37 @@ export class GeminiProvider implements LLMProvider {
     const verdict = VerdictSchema.parse(JSON.parse(response.text));
     return {
       verdict,
+      usage: {
+        model: this.model,
+        inputTokens: response.usageMetadata?.promptTokenCount ?? 0,
+        outputTokens: response.usageMetadata?.candidatesTokenCount ?? 0,
+        usd: 0, // free tier
+      },
+    };
+  }
+
+  async draftReply(input: {
+    system: string;
+    user: string;
+    maxOutputTokens: number;
+  }): Promise<DraftOutcome> {
+    const response = await this.client.models.generateContent({
+      model: this.model,
+      contents: input.user,
+      config: {
+        systemInstruction: input.system,
+        maxOutputTokens: input.maxOutputTokens,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    });
+    const finish = response.candidates?.[0]?.finishReason;
+    if (finish && finish !== 'STOP') {
+      throw new Error(`gemini draft stopped early: ${finish}`);
+    }
+    const body = response.text?.trim();
+    if (!body) throw new Error('gemini draft returned no text');
+    return {
+      body,
       usage: {
         model: this.model,
         inputTokens: response.usageMetadata?.promptTokenCount ?? 0,
