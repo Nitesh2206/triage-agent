@@ -1,0 +1,21 @@
+{
+  "name": "@triage/evals",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "full": "tsx run.ts",
+    "smoke": "tsx run.ts --smoke"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@triage/agent": "workspace:*",
+    "@triage/core": "workspace:*",
+    "@triage/ingestor": "workspace:*",
+    "@triage/mcp-server": "workspace:*",
+    "@triage/store": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  }
+}

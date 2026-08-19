@@ -5,9 +5,11 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "vitest run",
-    "lint": "eslint packages",
+    "lint": "eslint packages evals",
     "format": "prettier --write .",
     "demo": "pnpm --filter @triage/agent demo",
+    "eval": "pnpm --filter @triage/evals full",
+    "eval:smoke": "pnpm --filter @triage/evals smoke",
     "demo:ingest": "pnpm --filter @triage/ingestor demo",
     "demo:mcp": "pnpm --filter @triage/mcp-server demo"
   },
