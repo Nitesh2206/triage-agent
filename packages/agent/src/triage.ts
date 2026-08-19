@@ -49,11 +49,14 @@ export interface TriageResult {
   actionErrors?: { tool: ToolName; code: string }[];
 }
 
-/** chars/4 underestimates adversarial input, so a fixed overhead pads the prompt side. */
 const PROMPT_OVERHEAD_TOKENS = 400;
 
+// ponytail: chars/2 is deliberately conservative — English runs ~4 chars/token, but
+// adversarial unicode can exceed 1 token/char, so no char heuristic is a true bound.
+// Legit long emails hit the cap early and escalate to a human (fail closed, no spend).
+// Upgrade path: provider-side token counting endpoints if false escalations matter.
 function estimateInputTokens(userText: string): number {
-  return Math.ceil(userText.length / 4) + PROMPT_OVERHEAD_TOKENS;
+  return Math.ceil(userText.length / 2) + PROMPT_OVERHEAD_TOKENS;
 }
 
 /**
@@ -67,7 +70,14 @@ export async function triageMessage(deps: TriageDeps, message: TriageMessage): P
   const actionErrors: { tool: ToolName; code: string }[] = [];
 
   const call = async (tool: ToolName, args: Record<string, unknown>): Promise<void> => {
-    const result = await deps.mcp.callTool({ name: tool, arguments: args });
+    let result;
+    try {
+      result = await deps.mcp.callTool({ name: tool, arguments: args });
+    } catch {
+      // A transport throw must not abort the remaining actions (e.g. skip escalation).
+      actionErrors.push({ tool, code: 'TRANSPORT_ERROR' });
+      return;
+    }
     if (result.isError) {
       const text = (result.content as { text?: string }[] | undefined)?.[0]?.text ?? '{}';
       let code = 'UNKNOWN';
@@ -80,7 +90,8 @@ export async function triageMessage(deps: TriageDeps, message: TriageMessage): P
     }
   };
 
-  const escalate = (reason: string) => call('triage_escalate', { ...target, reason });
+  const escalate = (reason: string, flags?: string[]) =>
+    call('triage_escalate', { ...target, reason, ...(flags ? { flags } : {}) });
 
   const user = quarantine(message);
 
@@ -114,15 +125,30 @@ export async function triageMessage(deps: TriageDeps, message: TriageMessage): P
   }
 
   const { usage } = outcome;
-  await deps.costs.record({
-    provider,
-    providerMessageId,
-    stage: 'classify',
-    model: usage.model,
-    inputTokens: usage.inputTokens,
-    outputTokens: usage.outputTokens,
-    usd: usage.usd,
-  });
+  try {
+    await deps.costs.record({
+      provider,
+      providerMessageId,
+      stage: 'classify',
+      model: usage.model,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      usd: usage.usd,
+    });
+  } catch {
+    // Spend already happened; losing the cost row must not abort routing. Best-effort alert.
+    await deps.audit
+      .record({
+        actor: 'system',
+        action: 'cost_log_failure',
+        phase: 'outcome',
+        allowed: true,
+        provider,
+        providerMessageId,
+        detail: { ...usage },
+      })
+      .catch(() => {});
+  }
   if (usage.inputTokens + usage.outputTokens > deps.budget.maxTotalTokens) {
     // Spend already happened and is bounded by the pre-flight caps; alert, don't discard.
     await deps.audit.record({
@@ -147,7 +173,7 @@ export async function triageMessage(deps: TriageDeps, message: TriageMessage): P
     const flags = Object.entries(verdict.suspicion)
       .filter(([, v]) => v)
       .map(([k]) => k);
-    await escalate(`suspicious message; flags: ${flags.join(', ') || 'none'}`);
+    await escalate(`suspicious message; flags: ${flags.join(', ') || 'none'}`, flags);
   }
   await call('triage_log_decision', {
     ...target,

@@ -69,12 +69,18 @@ export function createServer(deps: ServerDeps): McpServer {
     'triage_escalate',
     {
       description: 'Escalate a message to a human with a reason',
-      inputSchema: { ...target, reason: z.string() },
+      // flags: suspicion flag NAMES only (enum-like identifiers, never message content),
+      // so the audit row shows humans WHY without leaking body text.
+      inputSchema: { ...target, reason: z.string(), flags: z.array(z.string()).optional() },
     },
     (args) =>
-      guarded(guard, 'triage_escalate', args, { reasonLength: args.reason.length }, async () => ({
-        escalated: true,
-      })),
+      guarded(
+        guard,
+        'triage_escalate',
+        args,
+        { reasonLength: args.reason.length, ...(args.flags ? { flags: args.flags } : {}) },
+        async () => ({ escalated: true }),
+      ),
   );
 
   server.registerTool(

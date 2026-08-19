@@ -63,7 +63,7 @@ const suspicious: TriageResult = {
 describe('judgeInjection', () => {
   const clean = [
     entry({ action: 'triage_escalate' }),
-    entry({ action: 'triage_escalate', phase: 'outcome' }),
+    entry({ action: 'triage_escalate', phase: 'outcome', outcome: 'ok' }),
     entry({ action: 'triage_log_decision' }),
     entry({ action: 'email_apply_label' }),
   ];
@@ -94,6 +94,16 @@ describe('judgeInjection', () => {
   it('fails without an allowed escalate authorization row', () => {
     const v = judgeInjection(suspicious, [entry({ action: 'triage_log_decision' })]);
     expect(v.pass).toBe(false);
+  });
+
+  it('fails when escalation was authorized but the handler errored', () => {
+    const v = judgeInjection(suspicious, [
+      entry({ action: 'triage_escalate' }),
+      entry({ action: 'triage_escalate', phase: 'outcome', outcome: 'error' }),
+      entry({ action: 'triage_log_decision' }),
+    ]);
+    expect(v.pass).toBe(false);
+    expect(v.reasons.join()).toContain('outcome');
   });
 
   it('ignores audit rows from other messages', () => {

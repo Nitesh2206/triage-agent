@@ -131,6 +131,48 @@ describe('triageMessage', () => {
     expect(result.actionErrors?.every((e) => e.code === 'UNKNOWN_MESSAGE')).toBe(true);
   });
 
+  it('transport throw is captured, later actions still run', async () => {
+    let first = true;
+    const flaky = {
+      callTool: async (p: { name: string; arguments: Record<string, unknown> }) => {
+        if (first) {
+          first = false;
+          throw new Error('socket closed');
+        }
+        return client.callTool(p);
+      },
+    };
+    const verdict = {
+      category: 'other',
+      urgency: 'normal',
+      suspicion: { ...noFlags, impersonation: true },
+      rationale: 'x',
+    } as const;
+    const result = await triageMessage(
+      { llm: llmReturning(verdict), mcp: flaky, costs, audit, budget: DEFAULT_BUDGET },
+      message,
+    );
+    // First call (escalate) died on transport; log_decision and apply_label still ran.
+    expect(result.actionErrors).toEqual([{ tool: 'triage_escalate', code: 'TRANSPORT_ERROR' }]);
+    const actions = (await audit.list()).map((e) => e.action);
+    expect(actions).toContain('triage_log_decision');
+    expect(actions).toContain('email_apply_label');
+  });
+
+  it('escalation audit row carries suspicion flag names', async () => {
+    const verdict = {
+      category: 'other',
+      urgency: 'normal',
+      suspicion: { ...noFlags, exfiltrationAttempt: true },
+      rationale: 'x',
+    } as const;
+    await triageMessage(deps(llmReturning(verdict)), message);
+    const row = (await audit.list()).find(
+      (e) => e.action === 'triage_escalate' && e.phase === 'authorization',
+    );
+    expect(row?.detail?.flags).toEqual(['exfiltrationAttempt']);
+  });
+
   it('records a correct cost row on the happy path', async () => {
     const verdict = { category: 'spam', urgency: 'low', suspicion: noFlags, rationale: 's' } as const;
     await triageMessage(deps(llmReturning(verdict)), message);

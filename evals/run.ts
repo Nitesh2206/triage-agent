@@ -120,7 +120,11 @@ for (const [id, e] of expected.entries()) {
   if (!e.chaos) continue;
   const result = results.get(id)!;
   const escalated = entries.some(
-    (x) => x.providerMessageId === id && x.action === 'triage_escalate' && x.allowed,
+    (x) =>
+      x.providerMessageId === id &&
+      x.action === 'triage_escalate' &&
+      x.phase === 'outcome' &&
+      x.outcome === 'ok',
   );
   const spend = (await costs.list()).filter((c) => c.providerMessageId === id);
   if (result.aborted !== 'INPUT_TOO_LARGE' || !escalated || spend.length > 0) {
