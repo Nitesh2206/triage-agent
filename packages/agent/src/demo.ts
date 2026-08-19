@@ -30,7 +30,13 @@ const deps = { llm, mcp, costs, audit, budget: DEFAULT_BUDGET, trust: trustConfi
 const results: TriageResult[] = [];
 const { messages: all } = await new FixtureProvider(fixtureDir).sync();
 for (const message of all) {
-  const result = await triageMessage(deps, message);
+  let result = await triageMessage(deps, message);
+  // Gemini free tier is 10 requests/min — back off and retry on rate limits.
+  for (let retry = 0; result.aborted === 'CLASSIFY_FAILED' && retry < 2; retry++) {
+    console.log(`  ${message.providerMessageId} classify failed (${result.abortReason}); retrying in 30s`);
+    await new Promise((r) => setTimeout(r, 30_000));
+    result = await triageMessage(deps, message);
+  }
   results.push(result);
   const v = result.verdict;
   const flags = v

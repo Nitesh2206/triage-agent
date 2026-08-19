@@ -13,7 +13,7 @@ Working document: phases, tasks, acceptance bars. Check things off as they land;
 - [x] Node LTS + pnpm (≥22.9 — demo/dashboard scripts use `--env-file-if-exists`)
 - [x] Supabase project (free tier) — needed from phase 4 (dashboard) / phase 5 (live)
 - [ ] Anthropic API key — needed from phase 3
-- [ ] Google AI Studio key (free) — dev loop and eval judging, phase 3
+- [x] Google AI Studio key (free) — dev loop and eval judging, phase 3
 - [ ] Trello workspace + API key — phase 2 (live card creation can be stubbed until then)
 - [ ] Gmail OAuth credentials — phase 5 only
 - [ ] GitHub repo + Actions enabled
@@ -62,13 +62,14 @@ External review of phase 1; accepted findings applied:
 
 ## Phase 4 — Drafting + approval queue + dashboard ✅ (done)
 
-- [x] Draft generation: `draftReply` on `LLMProvider` (claude → `claude-sonnet-5`, gemini → flash, fake → template); code gates in the loop — tier 2 AND draftable category (`enrolment_query`, `certificate_request`) AND not suspicious; MCP guard stays the enforcement authority
+- [x] Draft generation: `draftReply` on `LLMProvider` (claude → `claude-sonnet-5`, gemini → `gemini-3.5-flash`, fake → template); code gates in the loop — tier 2 AND draftable category (`enrolment_query`, `certificate_request`) AND not suspicious; MCP guard stays the enforcement authority. Budget covers classify+draft cumulatively; over-budget drafts skipped pre-flight with a refused audit row
 - [x] Migration 0003: `approvals` (pending → approved|rejected; approved → sending → sent), created atomically with each draft by DB trigger; costs table gains (provider, provider_message_id)
-- [x] Queue worker `processApprovals` — the only send path; atomic `claimForSend` (conditional update) prevents double-send; recipient/thread scope fixed in code to the source message; phase-4 sender is simulated. *Deviation: provider-side idempotency key deferred to phase 5's real Gmail sender.*
+- [x] Queue worker `processApprovals` — the only send path; audit authorization row persisted BEFORE the send (audit down = send blocked); atomic `claimForSend` (conditional update) prevents double-send; recipient/thread scope fixed in code to the source message; phase-4 sender is simulated. *Deviation: provider-side idempotency key deferred to phase 5's real Gmail sender.*
 - [x] `@triage/dashboard` (Next.js 15): approval queue with approve/edit/reject (server actions run the worker inline), audit log incl. refusals, per-stage cost table; Supabase-backed via root `.env`. Decisions fail closed unless `TRIAGE_ALLOW_APPROVALS=1` (server-side env, never headers — spoofable); dev/start bind to 127.0.0.1
-- [x] Eval draft gates (deterministic): zero drafts for attack fixtures; drafts only for tier-2 draftable benign. LLM-judge draft-quality suite stays roadmap.
-- [x] **Accept:** fixture email → draft → approve on dashboard → simulated send recorded in audit log
+- [x] Eval draft gates (deterministic): zero drafts for attack fixtures; exactly one draft per tier-2 draftable benign fixture. LLM-judge draft-quality suite stays roadmap.
+- [x] **Accept (verified live 2026-08-19):** fx-012 → Gemini classify → draft staged → approved on dashboard → simulated send with two-phase `email_send` audit rows, approval `sent`
 - *Deviation (reviewed): RLS read policies NOT added — dashboard is local-only on the service role in phase 4; deliberate scoped policies land with real auth + deploy in phase 5. `authenticated using (true)` would have exposed every sensitive row.*
+- *Note: gemini default model moved to `gemini-3.5-flash` — 2.5-generation models 404 for new accounts, and free-tier daily quota on retired models is tiny.*
 
 ## Phase 5 — Live Gmail + deployment
 
