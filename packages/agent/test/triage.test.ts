@@ -1,0 +1,147 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import type { ClassificationVerdict, LLMProvider, TriageMessage } from '@triage/core';
+import { MemoryAuditLog, MemoryCostLog, MemoryDraftStore, MemoryStore } from '@triage/store';
+import { createServer } from '@triage/mcp-server';
+import { DEFAULT_BUDGET, triageMessage, type TriageDeps } from '../src/triage.js';
+
+const trust = { internalDomains: ['brightpath.edu.au'], knownDomains: ['supplier.com.au'] };
+
+const message: TriageMessage = {
+  provider: 'fixture',
+  providerMessageId: 'fx-t1',
+  from: { address: 'someone@example.com' },
+  to: [{ address: 'admin@brightpath.edu.au' }],
+  subject: 'Question',
+  receivedAt: '2026-08-19T00:00:00Z',
+  body: 'A question about a course.',
+  authenticity: { dmarc: 'pass', alignedDomain: 'example.com' },
+};
+
+const noFlags = {
+  instructionOverride: false,
+  exfiltrationAttempt: false,
+  impersonation: false,
+  hiddenOrEncodedContent: false,
+};
+
+function llmReturning(verdict: ClassificationVerdict, tokens = { in: 500, out: 50 }): LLMProvider {
+  return {
+    name: 'mock',
+    classify: vi.fn(async () => ({
+      verdict,
+      usage: { model: 'mock', inputTokens: tokens.in, outputTokens: tokens.out, usd: 0.001 },
+    })),
+  };
+}
+
+describe('triageMessage', () => {
+  let audit: MemoryAuditLog;
+  let costs: MemoryCostLog;
+  let drafts: MemoryDraftStore;
+  let client: Client;
+
+  beforeEach(async () => {
+    const messages = new MemoryStore();
+    await messages.upsertMessage(message);
+    audit = new MemoryAuditLog();
+    costs = new MemoryCostLog();
+    drafts = new MemoryDraftStore();
+    const server = createServer({ messages, audit, drafts, trust });
+    client = new Client({ name: 'test', version: '0.0.0' });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    await Promise.all([client.connect(ct), server.connect(st)]);
+  });
+
+  function deps(llm: LLMProvider, budget = DEFAULT_BUDGET): TriageDeps {
+    return { llm, mcp: client, costs, audit, budget };
+  }
+
+  it('benign verdict: exactly log_decision + apply_label, no escalate, no drafts', async () => {
+    const verdict = { category: 'enrolment_query', urgency: 'normal', suspicion: noFlags, rationale: 'q' } as const;
+    const result = await triageMessage(deps(llmReturning(verdict)), message);
+    expect(result.verdict?.category).toBe('enrolment_query');
+    expect(result.aborted).toBeUndefined();
+    const actions = (await audit.list()).map((e) => e.action);
+    expect(actions.filter((a) => a === 'triage_log_decision')).toHaveLength(2); // auth + outcome
+    expect(actions.filter((a) => a === 'email_apply_label')).toHaveLength(2);
+    expect(actions).not.toContain('triage_escalate');
+    expect(await drafts.count()).toBe(0);
+  });
+
+  it('suspicion flag overrides category and escalates first', async () => {
+    const verdict = {
+      category: 'other',
+      urgency: 'normal',
+      suspicion: { ...noFlags, instructionOverride: true },
+      rationale: 'odd',
+    } as const;
+    const result = await triageMessage(deps(llmReturning(verdict)), message);
+    expect(result.verdict?.category).toBe('suspicious');
+    const actions = (await audit.list()).map((e) => e.action);
+    expect(actions).toContain('triage_escalate');
+    expect(actions.indexOf('triage_escalate')).toBeLessThan(actions.indexOf('triage_log_decision'));
+  });
+
+  it('provider throw: CLASSIFY_FAILED, escalated, no decision logged', async () => {
+    const llm: LLMProvider = {
+      name: 'mock',
+      classify: async () => {
+        throw new Error('api down');
+      },
+    };
+    const result = await triageMessage(deps(llm), message);
+    expect(result.aborted).toBe('CLASSIFY_FAILED');
+    const actions = (await audit.list()).map((e) => e.action);
+    expect(actions).toContain('triage_escalate');
+    expect(actions).not.toContain('triage_log_decision');
+  });
+
+  it('oversized input: provider never called, breach audited, escalated, zero spend', async () => {
+    const big = { ...message, body: 'x'.repeat(100_000) };
+    const store = new MemoryStore();
+    await store.upsertMessage(big);
+    const llm = llmReturning({ category: 'other', urgency: 'low', suspicion: noFlags, rationale: '' });
+    const result = await triageMessage(deps(llm), big);
+    expect(result.aborted).toBe('INPUT_TOO_LARGE');
+    expect(llm.classify).not.toHaveBeenCalled();
+    expect(await costs.list()).toHaveLength(0);
+    const breach = (await audit.list()).find((e) => e.action === 'token_budget_breach');
+    expect(breach?.actor).toBe('system');
+  });
+
+  it('actual usage over maxTotalTokens: cost recorded, breach alert, verdict still acted on', async () => {
+    const verdict = { category: 'invoice', urgency: 'normal', suspicion: noFlags, rationale: 'inv' } as const;
+    const llm = llmReturning(verdict, { in: 9000, out: 500 });
+    const result = await triageMessage(deps(llm), message);
+    expect(result.verdict?.category).toBe('invoice');
+    expect(await costs.list()).toHaveLength(1);
+    const breach = (await audit.list()).find((e) => e.action === 'token_budget_breach');
+    expect(breach?.detail?.kind).toBe('actual_over_total');
+    expect((await audit.list()).map((e) => e.action)).toContain('email_apply_label');
+  });
+
+  it('tool isError surfaces in actionErrors and later calls still run', async () => {
+    const unknown = { ...message, providerMessageId: 'fx-missing' };
+    const verdict = { category: 'other', urgency: 'low', suspicion: noFlags, rationale: 'x' } as const;
+    const result = await triageMessage(deps(llmReturning(verdict)), unknown);
+    // Message not in store: guard refuses every call with UNKNOWN_MESSAGE.
+    expect(result.actionErrors).toHaveLength(2);
+    expect(result.actionErrors?.every((e) => e.code === 'UNKNOWN_MESSAGE')).toBe(true);
+  });
+
+  it('records a correct cost row on the happy path', async () => {
+    const verdict = { category: 'spam', urgency: 'low', suspicion: noFlags, rationale: 's' } as const;
+    await triageMessage(deps(llmReturning(verdict)), message);
+    const [row] = await costs.list();
+    expect(row).toMatchObject({
+      provider: 'fixture',
+      providerMessageId: 'fx-t1',
+      stage: 'classify',
+      model: 'mock',
+      inputTokens: 500,
+      outputTokens: 50,
+    });
+  });
+});
