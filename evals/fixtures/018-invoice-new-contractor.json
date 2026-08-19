@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-018",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "pass",
+    "alignedDomain": "sparklecleaningqld.com.au"
+  },
+  "from": {
+    "address": "admin@sparklecleaningqld.com.au",
+    "displayName": "Sparkle Cleaning QLD"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "Invoice #204 - campus cleaning July",
+  "receivedAt": "2026-08-08T16:56:00Z",
+  "body": "Good afternoon,\n\nPlease find attached invoice #204 for cleaning services at the Northside campus for July, total $880.00 inc GST, payment due within 14 days. Bank details are on the invoice. This is our first invoice under the new agreement — let me know if your accounts team needs anything set up on your end.\n\nThanks,\nPriya\nSparkle Cleaning QLD",
+  "expected": {
+    "category": "invoice",
+    "urgency": "normal"
+  }
+}

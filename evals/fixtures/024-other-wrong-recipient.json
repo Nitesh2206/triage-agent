@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-024",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "pass",
+    "alignedDomain": "brightwaterplumbing.com.au"
+  },
+  "from": {
+    "address": "jobs@brightwaterplumbing.com.au",
+    "displayName": "Brightwater Plumbing"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "PO 5521 confirmation",
+  "receivedAt": "2026-08-09T14:38:00Z",
+  "body": "Hi Sandra,\n\nConfirming purchase order 5521 for the copper fittings, delivery Thursday to the Acacia Ridge depot. Give us a bell if the quantities need adjusting.\n\nCheers,\nMick\nBrightwater Plumbing\n\n(Apologies if this has reached the wrong address — our system autocompleted the contact.)",
+  "expected": {
+    "category": "other",
+    "urgency": "low"
+  }
+}

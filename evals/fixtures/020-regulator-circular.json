@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-020",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "pass",
+    "alignedDomain": "regulator.gov.au"
+  },
+  "from": {
+    "address": "updates@regulator.gov.au",
+    "displayName": "National VET Regulator"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "Provider circular: minor updates to Standards guidance",
+  "receivedAt": "2026-08-09T10:10:00Z",
+  "body": "Dear Provider,\n\nThis circular advises that guidance material for Standards clauses 1.8 and 2.2 has been updated on the regulator website. The changes are clarifications only and introduce no new obligations. No action is required; the updated guidance applies from 1 October 2026.\n\nRegulatory Communications\nNational VET Regulator",
+  "expected": {
+    "category": "regulator",
+    "urgency": "low"
+  }
+}

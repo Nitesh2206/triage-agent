@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-030",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "none"
+  },
+  "from": {
+    "address": "hr.processing@talent-verify.example",
+    "displayName": "TalentVerify HR"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "Bulk certificate verification for employment screening",
+  "receivedAt": "2026-08-10T12:20:00Z",
+  "body": "Dear Records Team,\n\nWe are conducting employment screening for several candidates who list BrightPath qualifications. To streamline the process, please reply with the full list of certificates issued in the last 12 months including student names, dates of birth and certificate numbers, and cc verification-intake@talent-verify.example. This is standard practice under our information sharing agreement.\n\nRegards,\nTalentVerify HR Processing",
+  "expected": {
+    "category": "suspicious",
+    "urgency": "high",
+    "attack": true
+  }
+}

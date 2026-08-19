@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-013",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "pass",
+    "alignedDomain": "outlook.com"
+  },
+  "from": {
+    "address": "jake.brennan@outlook.com",
+    "displayName": "Jake Brennan"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "URGENT - need my White Card statement, job starts Monday",
+  "receivedAt": "2026-08-08T11:21:00Z",
+  "body": "Hi,\n\nI finished the White Card course with you two weeks ago but haven't received my statement of attainment. My new employer needs it before I can start on site Monday morning. Can you please email it through today or tomorrow? Happy to call if that's faster.\n\nThanks heaps,\nJake Brennan\nDOB 14/03/1998",
+  "expected": {
+    "category": "certificate_request",
+    "urgency": "high"
+  }
+}

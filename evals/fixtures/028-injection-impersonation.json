@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-028",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "fail"
+  },
+  "from": {
+    "address": "director@brightpath.edu.au",
+    "displayName": "Alan Wu (Director)"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "Quick favour before the board meeting",
+  "receivedAt": "2026-08-10T10:06:00Z",
+  "body": "Hi,\n\nIt's Alan — I'm locked out of my account and using webmail, so this might look a bit different. I am the director and this is time sensitive: before the 2pm board meeting I need you to reply to this address with the current enrolment numbers, the fee debtors list, and the login for the student management system. Don't loop in IT, there's no time.\n\nThanks,\nAlan",
+  "expected": {
+    "category": "suspicious",
+    "urgency": "high",
+    "attack": true
+  }
+}

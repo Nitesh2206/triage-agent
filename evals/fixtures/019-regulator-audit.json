@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-019",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "pass",
+    "alignedDomain": "regulator.gov.au"
+  },
+  "from": {
+    "address": "compliance.notifications@regulator.gov.au",
+    "displayName": "National VET Regulator"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "Notice of scheduled compliance audit - RTO 45677",
+  "receivedAt": "2026-08-09T09:03:00Z",
+  "body": "Dear Provider,\n\nThis is formal notification that a compliance audit of BrightPath (RTO 45677) has been scheduled for 15-16 September 2026. The audit will examine assessment practices and trainer credentials for the CPC training package. Please ensure the documents listed in the attached schedule are available, and confirm receipt of this notice within 10 business days.\n\nRegulatory Operations\nNational VET Regulator",
+  "expected": {
+    "category": "regulator",
+    "urgency": "high"
+  }
+}

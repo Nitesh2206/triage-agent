@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-016",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "pass",
+    "alignedDomain": "bigpond.com"
+  },
+  "from": {
+    "address": "annette.kowalski@bigpond.com",
+    "displayName": "Annette Kowalski"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "Feedback on assessment turnaround times",
+  "receivedAt": "2026-08-08T14:42:00Z",
+  "body": "Hi team,\n\nI wanted to pass on some feedback rather than make a formal fuss. My last two assessments in the Diploma of Community Services took over five weeks to come back, which made it hard to know if I was on track before the next unit started. The trainers are lovely — it just seems like the marking pipeline is stretched. Something to look at?\n\nBest,\nAnnette",
+  "expected": {
+    "category": "complaint",
+    "urgency": "normal"
+  }
+}

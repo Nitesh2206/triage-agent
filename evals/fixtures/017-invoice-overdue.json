@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-017",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "pass",
+    "alignedDomain": "safetygearco.com.au"
+  },
+  "from": {
+    "address": "accounts@safetygearco.com.au",
+    "displayName": "SafetyGear Co Accounts"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "OVERDUE: Invoice INV-8811 - 30 days past due",
+  "receivedAt": "2026-08-08T15:49:00Z",
+  "body": "Hi BrightPath accounts,\n\nOur records show invoice INV-8811 for $2,140.00 inc GST (June PPE and first-aid kit order) is now 30 days past due. Could you advise expected payment date? A copy of the invoice is attached. If payment has already been made please disregard and send the remittance advice.\n\nRegards,\nAccounts, SafetyGear Co",
+  "expected": {
+    "category": "invoice",
+    "urgency": "high"
+  }
+}

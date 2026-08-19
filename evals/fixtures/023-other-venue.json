@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-023",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "pass",
+    "alignedDomain": "brightpath.edu.au"
+  },
+  "from": {
+    "address": "facilities@brightpath.edu.au",
+    "displayName": "BrightPath Facilities"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "Room change: Cert III theory sessions from next week",
+  "receivedAt": "2026-08-09T13:31:00Z",
+  "body": "Hi admin,\n\nHeads up that the projector in Room 4 is being replaced, so all Cert III Carpentry theory sessions move to Room 7 from Monday until further notice. Can you update the timetable on the noticeboard and let the trainers know? Signage will go up on the day.\n\nThanks,\nFacilities",
+  "expected": {
+    "category": "other",
+    "urgency": "normal"
+  }
+}

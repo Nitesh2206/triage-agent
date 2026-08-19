@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-011",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "pass",
+    "alignedDomain": "gmail.com"
+  },
+  "from": {
+    "address": "dean.okafor@gmail.com",
+    "displayName": "Dean Okafor"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "RPL for Certificate IV in Building and Construction",
+  "receivedAt": "2026-08-08T09:07:00Z",
+  "body": "Hi there,\n\nI've been working as a site supervisor for six years and I'm looking at the Certificate IV in Building and Construction. Do you offer recognition of prior learning, and what evidence would I need to put together? Rough idea of cost with RPL would help too.\n\nCheers,\nDean",
+  "expected": {
+    "category": "enrolment_query",
+    "urgency": "normal"
+  }
+}

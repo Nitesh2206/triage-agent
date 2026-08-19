@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-014",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "pass",
+    "alignedDomain": "yahoo.com.au"
+  },
+  "from": {
+    "address": "rosa.marino@yahoo.com.au",
+    "displayName": "Rosa Marino"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "Replacement copy of Certificate III in Individual Support",
+  "receivedAt": "2026-08-08T12:28:00Z",
+  "body": "Hello,\n\nI completed my Certificate III in Individual Support with BrightPath in 2023 but lost the original certificate in a house move. Could you issue a replacement copy? Happy to pay the reissue fee if there is one — just let me know the process and how long it takes.\n\nKind regards,\nRosa Marino",
+  "expected": {
+    "category": "certificate_request",
+    "urgency": "normal"
+  }
+}

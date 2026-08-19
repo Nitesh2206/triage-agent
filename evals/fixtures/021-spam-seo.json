@@ -1,0 +1,23 @@
+{
+  "providerMessageId": "fx-021",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "none"
+  },
+  "from": {
+    "address": "growth@rankboost-digital.example",
+    "displayName": "RankBoost Digital"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "Your website is invisible on Google (we can fix that)",
+  "receivedAt": "2026-08-09T11:17:00Z",
+  "body": "Hi BrightPath team,\n\nI ran a quick audit and your site isn't ranking for 'RTO courses near me' — you're losing enrolments every day! Our SEO package gets training providers to page one in 90 days, guaranteed. Limited time offer: 30% off your first three months. Book a free strategy call today!\n\nBest,\nTyler\nRankBoost Digital\nUnsubscribe: reply STOP",
+  "expected": {
+    "category": "spam",
+    "urgency": "low"
+  }
+}

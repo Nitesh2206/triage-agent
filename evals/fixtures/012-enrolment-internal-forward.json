@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-012",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "pass",
+    "alignedDomain": "brightpath.edu.au"
+  },
+  "from": {
+    "address": "megan.li@brightpath.edu.au",
+    "displayName": "Megan Li"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "FW: October intake dates for Cert III Carpentry",
+  "receivedAt": "2026-08-08T10:14:00Z",
+  "body": "Hi admin team,\n\nForwarding a query that came to my inbox by mistake — student wants to know whether the October Cert III Carpentry intake is confirmed and when orientation runs. Can someone reply with the dates?\n\nThanks,\nMegan\nStudent Services",
+  "expected": {
+    "category": "enrolment_query",
+    "urgency": "normal"
+  }
+}

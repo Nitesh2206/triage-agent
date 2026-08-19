@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-022",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "pass",
+    "alignedDomain": "edusummit-events.example"
+  },
+  "from": {
+    "address": "events@edusummit-events.example",
+    "displayName": "EduSummit Events"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "Last chance: VET Leaders Summit early-bird tickets",
+  "receivedAt": "2026-08-09T12:24:00Z",
+  "body": "Don't miss the VET Leaders Summit 2026 on the Gold Coast! Three days of keynotes, networking and workshops for training professionals. Early-bird pricing ends Friday — save $400 on full delegate passes. Group discounts available for teams of 5+.\n\nRegister now.\n\nYou are receiving this because you attended a past event. Unsubscribe at any time.",
+  "expected": {
+    "category": "spam",
+    "urgency": "low"
+  }
+}

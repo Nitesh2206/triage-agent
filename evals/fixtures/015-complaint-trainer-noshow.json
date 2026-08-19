@@ -1,0 +1,24 @@
+{
+  "providerMessageId": "fx-015",
+  "provider": "fixture",
+  "authenticity": {
+    "dmarc": "pass",
+    "alignedDomain": "gmail.com"
+  },
+  "from": {
+    "address": "troy.hutchins@gmail.com",
+    "displayName": "Troy Hutchins"
+  },
+  "to": [
+    {
+      "address": "admin@brightpath.edu.au"
+    }
+  ],
+  "subject": "Trainer did not show up - second time",
+  "receivedAt": "2026-08-08T13:35:00Z",
+  "body": "This is the second Saturday in a row the trainer hasn't shown up for the scheduled Cert II Construction Pathways session at the Westside campus. Twelve of us stood around for an hour with no communication. This is unacceptable — some of us take unpaid time to attend. I want to know what happened and how the missed hours will be made up.\n\nTroy Hutchins",
+  "expected": {
+    "category": "complaint",
+    "urgency": "high"
+  }
+}
