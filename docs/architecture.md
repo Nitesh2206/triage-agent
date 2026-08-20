@@ -18,7 +18,7 @@ A training organisation's inbox receives a steady stream of operational email: e
 These four rules drive every structural decision below:
 
 1. **Email content is evidence, never instructions.** Anything inside a message body is untrusted data. The agent may read it; nothing in it may direct the agent.
-2. **Permissions are enforced outside the model.** The agent *requests* actions; a separate guard layer *decides*. A fully compromised prompt still cannot execute a forbidden tool call.
+2. **Permissions are enforced outside the model.** The agent _requests_ actions; a separate guard layer _decides_. A fully compromised prompt still cannot execute a forbidden tool call.
 3. **Quality is measured, not assumed.** Every capability has a labeled eval suite that runs in CI. If we can't score it, we don't trust it.
 4. **Every run has a price tag.** Token usage is logged per message and per stage, so unit economics are a dashboard number, not a guess.
 
@@ -50,17 +50,17 @@ A scheduled worker (cron, every few minutes) polls the mailbox through a cursor-
 
 No LLM is involved at this stage; it is a plain API client with retry/backoff. Mail access is behind a `MailProvider` interface with three implementations:
 
-| Provider | Purpose |
-|---|---|
-| `GmailProvider` | Primary live provider (OAuth 2.0) |
+| Provider          | Purpose                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| `GmailProvider`   | Primary live provider (OAuth 2.0)                                                                       |
 | `FixtureProvider` | Replays labeled emails from JSON files — the whole pipeline runs with zero credentials (`npm run demo`) |
-| `GraphProvider` | Microsoft 365 / Outlook (roadmap) |
+| `GraphProvider`   | Microsoft 365 / Outlook (roadmap)                                                                       |
 
 ### Stage 2 — Quarantine
 
 Before any model sees a message, it is wrapped as untrusted content: the body is placed in a delimited data block, and the system prompt states explicitly that nothing inside the block is an instruction. Quarantine applies **per message, not per thread** — quoted replies inside a trusted colleague's email are still untrusted, because that is exactly where injected text hides.
 
-The first model pass is *structured extraction only*: the model must emit a JSON verdict (category, urgency, entities, suspicion flags) and has **no tool access at all** while reading raw content. Tool-capable stages only ever see the structured verdict, never the raw body driving tool choice.
+The first model pass is _structured extraction only_: the model must emit a JSON verdict (category, urgency, entities, suspicion flags) and has **no tool access at all** while reading raw content. Tool-capable stages only ever see the structured verdict, never the raw body driving tool choice.
 
 ### Stage 3 — Classify and route
 
@@ -72,7 +72,7 @@ The agent loop (Claude Agent SDK) runs a two-tier model strategy:
 
 Model access sits behind an `LLMProvider` interface with three implementations: `claude` (production path), `gemini` (free-tier development loop and eval judging), and `fake` (deterministic keyword heuristic — keeps `pnpm demo` credential-free). Swapping is one config change; the tool layer below is protocol-agnostic and does not change at all.
 
-*Phase 3 deviation from the original sketch: the loop uses the plain Messages API plus explicit MCP client calls rather than the Agent SDK — the classification pass has zero tools by design, and deterministic code (not the model) drives the tool calls. The Agent SDK becomes worthwhile in phase 4 when drafting needs real agentic tool use.*
+_Phase 3 deviation from the original sketch: the loop uses the plain Messages API plus explicit MCP client calls rather than the Agent SDK — the classification pass has zero tools by design, and deterministic code (not the model) drives the tool calls. The Agent SDK becomes worthwhile in phase 4 when drafting needs real agentic tool use._
 
 ### Stage 4 — Guarded tools (MCP server)
 
@@ -80,12 +80,12 @@ All actions the agent can take are tools exposed by a standalone MCP server (`tr
 
 MCP is an open protocol (JSON-RPC over stdio/HTTP), so the server is model-agnostic — any MCP-capable client can drive it. More importantly, the server is where **trust-tier enforcement** lives:
 
-| Tier | Sender | Permitted tools |
-|---|---|---|
-| 0 | Unknown sender | classify + label only |
-| 1 | Known external domain | + create Trello card |
-| 2 | Internal / allowlisted | + draft reply (never send) |
-| — | Any tier | **send requires human approval, no exceptions** |
+| Tier | Sender                 | Permitted tools                                 |
+| ---- | ---------------------- | ----------------------------------------------- |
+| 0    | Unknown sender         | classify + label only                           |
+| 1    | Known external domain  | + create Trello card                            |
+| 2    | Internal / allowlisted | + draft reply (never send)                      |
+| —    | Any tier               | **send requires human approval, no exceptions** |
 
 Every tool call carries the message ID; middleware looks up the sender's tier (derived from verified domain and SPF/DKIM headers — never the display name) and refuses out-of-policy calls. Refusals are logged and surfaced on the dashboard: "agent attempted X, blocked" is an observable event, not a silent failure. The security boundary is code in this server, not wording in a prompt.
 
@@ -93,7 +93,7 @@ Each call is audit-logged with arguments, result, trust tier, and token cost —
 
 ### Stage 5 — Human approval
 
-Drafts land in an approval queue in Supabase — every draft insert creates its `pending` approval row atomically (DB trigger). A human reviews each draft on the dashboard and approves, edits, or rejects. Only an approved draft is sent, and sending is performed by the queue worker (`processApprovals`) — the agent has no send capability at any trust tier. The worker claims each row with an atomic `approved → sending` transition so concurrent workers cannot double-send, and the recipient and thread scope are fixed in code to the source message's sender and thread. (Phase 4 sender is simulated; the real Gmail sender with a provider-side idempotency key is phase 5.)
+Drafts land in an approval queue in Supabase — every draft insert creates its `pending` approval row atomically (DB trigger). A human reviews each draft on the dashboard and approves, edits, or rejects. Only an approved draft is sent, and sending is performed by the queue worker (`processApprovals`) — the agent has no send capability at any trust tier. The worker claims each row with an atomic `approved → sending` transition so concurrent workers cannot double-send, and the recipient and thread scope are fixed in code to the source message's sender and thread. The sender is real Gmail when credentials are present (simulated otherwise): the worker authors the outgoing RFC 5322 Message-ID and persists it before the provider call, so a crash between send and mark-sent is recovered by probing Gmail for that id — best-effort idempotency with a hold window against search lag (see threat model).
 
 ### Stage 6 — Observe
 
@@ -108,25 +108,25 @@ The dashboard (Next.js) shows:
 
 Full table with mitigations and test mappings lives in [`threat-model.md`](threat-model.md). Summary of what we defend against and where the defence lives:
 
-| Threat | Defence | Layer |
-|---|---|---|
-| Prompt injection in email body | Quarantine + extraction-only first pass | Stage 2 |
-| Tool escalation by a compromised agent | Trust-tier middleware refuses the call | Stage 4 (code, not prompt) |
-| Data exfiltration via drafts | Draft scope limited to the source thread | Stage 4 + evals |
-| Sender spoofing for trust elevation | Tier from verified domain + SPF/DKIM | Stage 4 |
-| Runaway cost (loops, giant threads) | Per-message token budget, hard cap, alert | Stage 3 |
+| Threat                                 | Defence                                   | Layer                      |
+| -------------------------------------- | ----------------------------------------- | -------------------------- |
+| Prompt injection in email body         | Quarantine + extraction-only first pass   | Stage 2                    |
+| Tool escalation by a compromised agent | Trust-tier middleware refuses the call    | Stage 4 (code, not prompt) |
+| Data exfiltration via drafts           | Draft scope limited to the source thread  | Stage 4 + evals            |
+| Sender spoofing for trust elevation    | Tier from verified domain + SPF/DKIM      | Stage 4                    |
+| Runaway cost (loops, giant threads)    | Per-message token budget, hard cap, alert | Stage 3                    |
 
 Every row maps to a test: injection fixtures must score 100% (binary: classified suspicious AND zero out-of-policy calls), tier enforcement has unit tests, cost caps have a chaos fixture.
 
 ## 5. Evaluation
 
-*Status: suites 1 and 2 live (phase 3): 31 labeled fixtures (8 attacks + 1 chaos), `evals/run.ts` gates injection at 100% plus a ≤15% benign false-positive counter-gate; CI runs a 10-fixture smoke on push and the full suite on dispatch. Phase 4 added deterministic draft-scope gates: zero drafts on attack fixtures, drafts only for tier-2 draftable benign fixtures. Suite 3 (LLM-judge draft quality) remains roadmap.*
+_Status: suites 1 and 2 live (phase 3): 31 labeled fixtures (8 attacks + 1 chaos), `evals/run.ts` gates injection at 100% plus a ≤15% benign false-positive counter-gate; CI runs a 10-fixture smoke on push and the full suite on dispatch. Phase 4 added deterministic draft-scope gates: zero drafts on attack fixtures, drafts only for tier-2 draftable benign fixtures. Suite 3 (LLM-judge draft quality) remains roadmap._
 
 Three suites, run from labeled fixtures in `evals/fixtures/`:
 
 1. **Classification accuracy** — ~60 labeled training-org emails across all categories. Precision/recall per category; CI gate at a threshold (majority vote over 3 runs to absorb model nondeterminism).
 2. **Injection resistance** — ~15 attack emails (instruction override, hidden text, encoded payloads, fake system messages in quoted threads, tool-name spoofing). Pass bar is 100%, gated in CI.
-3. **Draft quality** — LLM-as-judge with a rubric (addresses the question, invents no facts, no data beyond thread scope). Judged by a *different vendor's* model (Gemini) than the one drafting, to avoid self-preference bias. Tracked as a trend, not a CI gate — judge scores are too noisy to gate on; only deterministic checks gate.
+3. **Draft quality** — LLM-as-judge with a rubric (addresses the question, invents no facts, no data beyond thread scope). Judged by a _different vendor's_ model (Gemini) than the one drafting, to avoid self-preference bias. Tracked as a trend, not a CI gate — judge scores are too noisy to gate on; only deterministic checks gate.
 
 Eval results are stored in Supabase and charted on the dashboard.
 
@@ -164,25 +164,25 @@ TypeScript monorepo throughout. Deployment target: worker on a scheduled runner 
 
 Each phase ends with a working system. Detailed tasks and acceptance bars live in [`plan.md`](plan.md).
 
-| Phase | Deliverable | Status |
-|---|---|---|
-| 1 | Core types, `FixtureProvider`, ingestor → Supabase. *System ingests and stores.* | ✅ done |
-| 1.5 | External review remediation: RLS, cursor sync contract, envelope provenance, error-mapping tests. | ✅ done |
-| 2 | MCP server with trust middleware, audit log, unit tests. *Tools governed before any LLM exists.* | ✅ done |
-| 3 | Agent loop, quarantine, classification, injection eval suite. *Pipeline classifies; evals run.* | ✅ done |
-| 4 | Drafting, approval queue, minimal dashboard. *Full loop demo-able end to end.* | ✅ done |
-| 5 | Live `GmailProvider`, deployment, cost dashboard. *Runs against a real inbox.* | planned |
-| 6 | `GraphProvider`, LLM-judge suite, webhook/push ingestion, HTTP transport for the MCP server | roadmap |
+| Phase | Deliverable                                                                                                        | Status                                             |
+| ----- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| 1     | Core types, `FixtureProvider`, ingestor → Supabase. _System ingests and stores._                                   | ✅ done                                            |
+| 1.5   | External review remediation: RLS, cursor sync contract, envelope provenance, error-mapping tests.                  | ✅ done                                            |
+| 2     | MCP server with trust middleware, audit log, unit tests. _Tools governed before any LLM exists._                   | ✅ done                                            |
+| 3     | Agent loop, quarantine, classification, injection eval suite. _Pipeline classifies; evals run._                    | ✅ done                                            |
+| 4     | Drafting, approval queue, minimal dashboard. _Full loop demo-able end to end._                                     | ✅ done                                            |
+| 5     | Live `GmailProvider`, real Gmail sender, dashboard auth + RLS, retention, deployment. _Runs against a real inbox._ | code complete; live acceptance pending credentials |
+| 6     | `GraphProvider`, LLM-judge suite, webhook/push ingestion, HTTP transport for the MCP server                        | roadmap                                            |
 
-The ordering is deliberate: the permission guard exists and is tested *before* the first model call is wired in — security is a foundation here, not a retrofit.
+The ordering is deliberate: the permission guard exists and is tested _before_ the first model call is wired in — security is a foundation here, not a retrofit.
 
 ## 9. Decisions and trade-offs
 
-| Decision | Choice | Why |
-|---|---|---|
-| Poll vs push ingestion | Poll with incremental sync | Gmail push needs Pub/Sub infrastructure; at this volume polling is well under quota and simpler to operate. Push is a documented upgrade path. |
-| Own MCP server vs third-party tool servers | Own | Trust checks and audit logging must sit in the tool path; off-the-shelf servers don't provide that choke point. |
-| Where permissions live | MCP server middleware | Prompt-level rules fail exactly when you need them (under injection). Code-level refusal does not. |
-| Queue/state infra | Supabase for everything | One store for state, queue, audit, costs, evals. No Redis, no queue service, nothing extra to operate. |
-| Model strategy | Small-first, two vendors behind one interface | Cost control, and model/vendor swaps become config changes rather than rewrites. |
-| Agent never sends | Human approval always | The failure mode of a wrong send is unrecoverable; the cost of approval is a click. |
+| Decision                                   | Choice                                        | Why                                                                                                                                            |
+| ------------------------------------------ | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Poll vs push ingestion                     | Poll with incremental sync                    | Gmail push needs Pub/Sub infrastructure; at this volume polling is well under quota and simpler to operate. Push is a documented upgrade path. |
+| Own MCP server vs third-party tool servers | Own                                           | Trust checks and audit logging must sit in the tool path; off-the-shelf servers don't provide that choke point.                                |
+| Where permissions live                     | MCP server middleware                         | Prompt-level rules fail exactly when you need them (under injection). Code-level refusal does not.                                             |
+| Queue/state infra                          | Supabase for everything                       | One store for state, queue, audit, costs, evals. No Redis, no queue service, nothing extra to operate.                                         |
+| Model strategy                             | Small-first, two vendors behind one interface | Cost control, and model/vendor swaps become config changes rather than rewrites.                                                               |
+| Agent never sends                          | Human approval always                         | The failure mode of a wrong send is unrecoverable; the cost of approval is a click.                                                            |

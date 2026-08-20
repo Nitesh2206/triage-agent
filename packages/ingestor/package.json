@@ -5,9 +5,12 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "demo": "tsc && node dist/demo.js"
+    "demo": "tsc && node dist/demo.js",
+    "gmail:consent": "tsc && node --env-file-if-exists=../../.env dist/gmail-consent.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "googleapis": "^144.0.0",
     "@triage/core": "workspace:*",
     "@triage/store": "workspace:*"
   }

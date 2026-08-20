@@ -29,7 +29,9 @@ function flags(text: string): SuspicionFlags {
       /\bforward (all|the)|send .*(list|records|credentials|password)|(full|entire|all) .{0,20}(contact|student) (list|records)|alternate address\b/i.test(
         text,
       ),
-    impersonation: /\b(i am|this is) (the )?(administrator|it department|principal|ceo)\b/i.test(text),
+    impersonation: /\b(i am|this is) (the )?(administrator|it department|principal|ceo)\b/i.test(
+      text,
+    ),
     hiddenOrEncodedContent:
       /<!--|[A-Za-z0-9+/]{40,}={0,2}/.test(text) || text.includes(ZERO_WIDTH_SPACE),
   };

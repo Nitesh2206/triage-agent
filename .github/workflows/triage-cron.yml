@@ -1,0 +1,41 @@
+# Live triage tick: retention purge -> Gmail ingest -> classify/draft -> send
+# approved. Never on pull_request — the secrets must not meet untrusted fork
+# code (same rule as the eval jobs in ci.yml). Free-tier scheduled workflows
+# can lag or skip a slot; acceptable at this volume.
+name: triage-cron
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+# One tick at a time: overlapping runs would race the sync cursor and the
+# send-recovery hold-window logic.
+concurrency:
+  group: triage-cron
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+      GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+      GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+      LLM_PROVIDER: gemini
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: require secrets
+        run: test -n "$SUPABASE_URL" && test -n "$GMAIL_REFRESH_TOKEN" && test -n "$GEMINI_API_KEY"
+      - run: pnpm run:live

@@ -8,6 +8,7 @@
     "lint": "eslint packages evals",
     "format": "prettier --write .",
     "demo": "pnpm --filter @triage/agent demo",
+    "run:live": "pnpm --filter @triage/agent run:live",
     "dashboard": "pnpm --filter @triage/dashboard dev",
     "eval": "pnpm --filter @triage/evals full",
     "eval:smoke": "pnpm --filter @triage/evals smoke",

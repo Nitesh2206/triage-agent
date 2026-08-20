@@ -49,6 +49,14 @@ export interface DraftOutcome {
  */
 export interface LLMProvider {
   readonly name: string;
-  classify(input: { system: string; user: string; maxOutputTokens: number }): Promise<ClassifyOutcome>;
-  draftReply(input: { system: string; user: string; maxOutputTokens: number }): Promise<DraftOutcome>;
+  classify(input: {
+    system: string;
+    user: string;
+    maxOutputTokens: number;
+  }): Promise<ClassifyOutcome>;
+  draftReply(input: {
+    system: string;
+    user: string;
+    maxOutputTokens: number;
+  }): Promise<DraftOutcome>;
 }

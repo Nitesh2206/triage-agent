@@ -1,9 +1,13 @@
 import { approve, reject } from './actions';
+import { requireOperator } from '../lib/auth';
 import { stores } from '../lib/stores';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ApprovalsPage() {
+  // Pages read via the service role, so the operator gate applies here too —
+  // middleware only proves a session exists, not that it belongs to an operator.
+  await requireOperator();
   const { drafts, approvals, messages } = stores();
   const [draftRows, approvalRows] = await Promise.all([drafts.listDrafts(), approvals.list()]);
   const byDraft = new Map(approvalRows.map((a) => [a.draftId, a]));
@@ -27,8 +31,8 @@ export default async function ApprovalsPage() {
       {pending.map(({ draft, message }) => (
         <div className="card" key={draft.draftId}>
           <div className="meta">
-            draft #{draft.draftId} · to <strong>{message?.from.address ?? 'unknown sender'}</strong> · re:{' '}
-            {message?.subject ?? draft.providerMessageId} · staged {draft.createdAt}
+            draft #{draft.draftId} · to <strong>{message?.from.address ?? 'unknown sender'}</strong>{' '}
+            · re: {message?.subject ?? draft.providerMessageId} · staged {draft.createdAt}
           </div>
           <form action={approve}>
             <input type="hidden" name="draftId" value={draft.draftId} />

@@ -42,7 +42,11 @@ const calls: Call[] = [
   {
     label: 'tier-2 sender (internal) gets a draft reply staged',
     tool: 'email_draft_reply',
-    args: { provider: 'fixture', providerMessageId: 'fx-008', body: 'Hi Peter, plumbing courses run...' },
+    args: {
+      provider: 'fixture',
+      providerMessageId: 'fx-008',
+      body: 'Hi Peter, plumbing courses run...',
+    },
     expectError: false,
   },
   {

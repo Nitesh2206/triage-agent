@@ -1,8 +1,10 @@
+import { requireOperator } from '../../lib/auth';
 import { stores } from '../../lib/stores';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CostsPage() {
+  await requireOperator(); // service-role reads: operator allowlist gate, not just a session
   const entries = await stores().costs.list();
   const byStage = new Map<string, { calls: number; tokens: number; usd: number }>();
   for (const e of entries) {

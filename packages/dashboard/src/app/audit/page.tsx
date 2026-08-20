@@ -1,8 +1,10 @@
+import { requireOperator } from '../../lib/auth';
 import { stores } from '../../lib/stores';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AuditPage() {
+  await requireOperator(); // service-role reads: operator allowlist gate, not just a session
   const entries = await stores().audit.list();
   const refused = entries.filter((e) => !e.allowed).length;
   return (

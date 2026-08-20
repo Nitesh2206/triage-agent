@@ -9,6 +9,8 @@ import type {
   DraftStore,
   MailSender,
   MessageStore,
+  SyncState,
+  SyncStateStore,
   TriageMessage,
   UpsertResult,
 } from '@triage/core';
@@ -16,6 +18,7 @@ import type {
 /** In-memory stores for tests and the credential-free demo. */
 export class MemoryStore implements MessageStore {
   private readonly messages = new Map<string, TriageMessage>();
+  private readonly triaged = new Set<string>();
 
   private key(provider: string, providerMessageId: string): string {
     return `${provider}:${providerMessageId}`;
@@ -34,6 +37,32 @@ export class MemoryStore implements MessageStore {
 
   async count(): Promise<number> {
     return this.messages.size;
+  }
+
+  async listUntriaged(provider: string, limit: number): Promise<TriageMessage[]> {
+    return [...this.messages.values()]
+      .filter(
+        (m) =>
+          m.provider === provider && !this.triaged.has(this.key(provider, m.providerMessageId)),
+      )
+      .slice(0, limit);
+  }
+
+  async markTriaged(provider: string, providerMessageId: string): Promise<void> {
+    this.triaged.add(this.key(provider, providerMessageId));
+  }
+}
+
+export class MemorySyncStateStore implements SyncStateStore {
+  private readonly states = new Map<string, SyncState>();
+
+  async get(provider: string): Promise<SyncState | null> {
+    const state = this.states.get(provider);
+    return state ? { ...state } : null;
+  }
+
+  async set(provider: string, state: SyncState): Promise<void> {
+    this.states.set(provider, { ...state });
   }
 }
 
@@ -96,13 +125,23 @@ export class MemoryApprovalStore implements ApprovalStore {
     return true;
   }
 
-  async markSent(draftId: string): Promise<void> {
+  async setSendMessageId(draftId: string, sendMessageId: string): Promise<void> {
+    const approval = this.approvals.get(draftId);
+    if (!approval || approval.status !== 'sending') {
+      throw new Error(`approval ${draftId} is not in 'sending'`);
+    }
+    approval.sendMessageId = sendMessageId;
+    approval.sendingAt = new Date().toISOString();
+  }
+
+  async markSent(draftId: string, providerSendId?: string): Promise<void> {
     const approval = this.approvals.get(draftId);
     if (!approval || approval.status !== 'sending') {
       throw new Error(`approval ${draftId} is not in 'sending'`);
     }
     approval.status = 'sent';
     approval.sentAt = new Date().toISOString();
+    approval.providerSendId = providerSendId;
   }
 }
 
@@ -138,11 +177,12 @@ export class MemoryDraftStore implements DraftStore {
   }
 }
 
-/** Records sends instead of performing them — tests and the phase-4 simulated queue worker. */
+/** Records sends instead of performing them — tests and the simulated queue worker. */
 export class MemoryMailSender implements MailSender {
   readonly sends: Parameters<MailSender['send']>[0][] = [];
 
-  async send(mail: Parameters<MailSender['send']>[0]): Promise<void> {
+  async send(mail: Parameters<MailSender['send']>[0]): Promise<{ providerSendId?: string }> {
     this.sends.push(mail);
+    return { providerSendId: `sim-${this.sends.length}` };
   }
 }

@@ -22,13 +22,19 @@ function msg(from: string, authenticity?: TriageMessage['authenticity']): Triage
 describe('resolveTrustTier', () => {
   it('internal domain with aligned pass → tier 2', () => {
     expect(
-      resolveTrustTier(msg('p@brightpath.edu.au', { dmarc: 'pass', alignedDomain: 'brightpath.edu.au' }), config),
+      resolveTrustTier(
+        msg('p@brightpath.edu.au', { dmarc: 'pass', alignedDomain: 'brightpath.edu.au' }),
+        config,
+      ),
     ).toBe(2);
   });
 
   it('known domain with aligned pass → tier 1', () => {
     expect(
-      resolveTrustTier(msg('a@safetygearco.com.au', { dmarc: 'pass', alignedDomain: 'safetygearco.com.au' }), config),
+      resolveTrustTier(
+        msg('a@safetygearco.com.au', { dmarc: 'pass', alignedDomain: 'safetygearco.com.au' }),
+        config,
+      ),
     ).toBe(1);
   });
 
@@ -40,7 +46,10 @@ describe('resolveTrustTier', () => {
 
   it('internal domain with dmarc fail → tier 0 (fail closed)', () => {
     expect(
-      resolveTrustTier(msg('p@brightpath.edu.au', { dmarc: 'fail', alignedDomain: 'brightpath.edu.au' }), config),
+      resolveTrustTier(
+        msg('p@brightpath.edu.au', { dmarc: 'fail', alignedDomain: 'brightpath.edu.au' }),
+        config,
+      ),
     ).toBe(0);
   });
 
@@ -50,7 +59,10 @@ describe('resolveTrustTier', () => {
 
   it('aligned-domain mismatch → tier 0 (fail closed)', () => {
     expect(
-      resolveTrustTier(msg('p@brightpath.edu.au', { dmarc: 'pass', alignedDomain: 'evil.example.com' }), config),
+      resolveTrustTier(
+        msg('p@brightpath.edu.au', { dmarc: 'pass', alignedDomain: 'evil.example.com' }),
+        config,
+      ),
     ).toBe(0);
   });
 
@@ -66,7 +78,10 @@ describe('resolveTrustTier', () => {
   it('display-name spoof gains nothing: tier comes from the address domain only', () => {
     // displayName is "BrightPath Admin" in every message above; a gmail sender stays tier 0.
     expect(
-      resolveTrustTier(msg('evil@gmail.com', { dmarc: 'pass', alignedDomain: 'gmail.com' }), config),
+      resolveTrustTier(
+        msg('evil@gmail.com', { dmarc: 'pass', alignedDomain: 'gmail.com' }),
+        config,
+      ),
     ).toBe(0);
   });
 });

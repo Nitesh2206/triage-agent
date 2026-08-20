@@ -21,6 +21,32 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
 
+  # Live-store integration test against the DEDICATED TEST Supabase project
+  # (never prod). Push/dispatch only — never pull_request, so the secret can't
+  # meet untrusted fork code. The guard step fails loudly on a missing secret
+  # (the test itself would skip silently, which must not pass for CI).
+  live-store:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+      TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: require secrets
+        run: test -n "$TEST_SUPABASE_URL" && test -n "$TEST_SUPABASE_SERVICE_ROLE_KEY"
+      - run: pnpm exec vitest run packages/store/test/supabase.live.test.ts
+
   # Security evals run only on push/dispatch — never on pull_request, so the
   # secret can't meet untrusted fork code. No skip-if-no-key guard: a missing
   # secret must fail loudly, not silently drop the injection gate.

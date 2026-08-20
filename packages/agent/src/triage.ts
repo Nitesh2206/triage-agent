@@ -84,7 +84,10 @@ function estimateInputTokens(userText: string): number {
  * suspicion override → act through the guarded MCP tools. Every branch is
  * code-driven; the model only ever produces the verdict.
  */
-export async function triageMessage(deps: TriageDeps, message: TriageMessage): Promise<TriageResult> {
+export async function triageMessage(
+  deps: TriageDeps,
+  message: TriageMessage,
+): Promise<TriageResult> {
   const { provider, providerMessageId } = message;
   const target = { provider, providerMessageId };
   const actionErrors: { tool: ToolName; code: string }[] = [];
@@ -140,10 +143,19 @@ export async function triageMessage(deps: TriageDeps, message: TriageMessage): P
   } catch (e) {
     const abortReason = (e instanceof Error ? e.message : String(e)).slice(0, 200);
     await escalate(`classification failed: ${abortReason}`);
-    return { providerMessageId, verdict: null, aborted: 'CLASSIFY_FAILED', abortReason, actionErrors };
+    return {
+      providerMessageId,
+      verdict: null,
+      aborted: 'CLASSIFY_FAILED',
+      abortReason,
+      actionErrors,
+    };
   }
 
-  const recordCost = async (stage: 'classify' | 'draft', usage: typeof outcome.usage): Promise<void> => {
+  const recordCost = async (
+    stage: 'classify' | 'draft',
+    usage: typeof outcome.usage,
+  ): Promise<void> => {
     try {
       await deps.costs.record({
         provider,
@@ -222,8 +234,7 @@ export async function triageMessage(deps: TriageDeps, message: TriageMessage): P
     // Pre-flight on the cumulative budget: don't start a draft the message's
     // total budget can't cover. The message is already classified and labeled;
     // it just goes out undrafted.
-    const projected =
-      totalTokens + estimateInputTokens(user) + deps.budget.maxDraftOutputTokens;
+    const projected = totalTokens + estimateInputTokens(user) + deps.budget.maxDraftOutputTokens;
     if (projected > deps.budget.maxTotalTokens) {
       await deps.audit.record({
         actor: 'system',

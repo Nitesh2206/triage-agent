@@ -18,6 +18,12 @@ export interface Approval {
   decidedBy?: string;
   decidedAt?: string;
   sentAt?: string;
+  /** Our own RFC 5322 Message-ID, persisted BEFORE the send — the idempotency key. */
+  sendMessageId?: string;
+  /** Provider's id of the sent message (audit trail). */
+  providerSendId?: string;
+  /** When the current send attempt started; the recovery hold window measures from here. */
+  sendingAt?: string;
 }
 
 export interface ApprovalStore {
@@ -29,18 +35,27 @@ export interface ApprovalStore {
   ): Promise<void>;
   /** Atomic approved → sending transition. False = someone else claimed it or status moved on. */
   claimForSend(draftId: string): Promise<boolean>;
-  markSent(draftId: string): Promise<void>;
+  /** Persist the send Message-ID on a 'sending' row and stamp sendingAt — called before EVERY provider attempt. */
+  setSendMessageId(draftId: string, sendMessageId: string): Promise<void>;
+  markSent(draftId: string, providerSendId?: string): Promise<void>;
 }
 
-/** Outbound mail. Phase 4 implementation is simulated; real Gmail send arrives in phase 5. */
+/** Outbound mail. Simulated in demos; GmailSender in production. */
 export interface MailSender {
   send(mail: {
     to: string;
     subject: string;
     body: string;
-    inReplyTo?: string;
+    /** Our RFC 5322 Message-ID — the sender MUST stamp it on the outgoing message. */
+    messageId: string;
     providerThreadId?: string;
-  }): Promise<void>;
+  }): Promise<{ providerSendId?: string }>;
+  /**
+   * Recovery probe: did a message with this Message-ID already leave?
+   * Optional — without it, stuck 'sending' rows stay for human resolution.
+   * Best-effort (provider search is eventually consistent); see processApprovals.
+   */
+  findSent?(messageId: string): Promise<boolean>;
 }
 
 export interface ApprovalWorkerDeps {
@@ -57,112 +72,181 @@ export interface SendReport {
   failed: { draftId: string; reason: string }[];
 }
 
+export interface ApprovalWorkerOptions {
+  /**
+   * Minimum age (from decision time) before a stuck 'sending' row may be
+   * re-sent. Provider search is eventually consistent — a just-sent message
+   * can be temporarily unfindable, so recovery holds off rather than risk a
+   * duplicate. Best-effort idempotency, not a guarantee (see threat model).
+   */
+  holdMs?: number;
+  now?: () => Date;
+}
+
+const DEFAULT_HOLD_MS = Number(process.env.TRIAGE_SEND_HOLD_MINUTES ?? 30) * 60_000;
+
 /**
  * The approval queue worker — the ONLY send path in the system. The agent has
  * no send tool at any trust tier. Send scope is enforced here in code: the
  * reply goes to the source message's sender on the source thread, nothing else.
+ *
+ * Send idempotency: we author the outgoing RFC 5322 Message-ID and persist it
+ * on the approval row BEFORE calling the provider. A crash between send and
+ * markSent leaves a 'sending' row WITH a send id; the recovery pass below
+ * probes the provider for that id — found means the mail left (mark sent, no
+ * resend), not found after the hold window means it never left (safe to
+ * resend with the same id).
  */
-// ponytail: no provider-side idempotency key yet — a crash between send() and
-// markSent() leaves the row 'sending' (visible on the dashboard, human resolves).
-// Phase 5's real Gmail sender adds a provider send id to make retries safe.
-export async function processApprovals(deps: ApprovalWorkerDeps): Promise<SendReport> {
+export async function processApprovals(
+  deps: ApprovalWorkerDeps,
+  opts: ApprovalWorkerOptions = {},
+): Promise<SendReport> {
   const report: SendReport = { sent: [], failed: [] };
-  const approved = (await deps.approvals.list()).filter((a) => a.status === 'approved');
+  const now = opts.now ?? (() => new Date());
+  const holdMs = opts.holdMs ?? DEFAULT_HOLD_MS;
+  const all = await deps.approvals.list();
 
-  for (const approval of approved) {
-    if (!(await deps.approvals.claimForSend(approval.draftId))) continue;
-
-    const fail = async (reason: string): Promise<void> => {
-      report.failed.push({ draftId: approval.draftId, reason });
-      await deps.audit
-        .record({
-          actor: 'system',
-          action: 'email_send',
-          phase: 'outcome',
-          allowed: true,
-          outcome: 'error',
-          detail: { draftId: approval.draftId, reason },
-        })
-        .catch(() => {});
-    };
-
-    const draft = await deps.drafts.getDraft(approval.draftId);
-    if (!draft) {
-      await fail('draft not found');
-      continue;
-    }
-    const message = await deps.messages.getMessage(draft.provider, draft.providerMessageId);
-    if (!message) {
-      await fail('source message not found');
-      continue;
-    }
-
-    const body = approval.editedBody ?? draft.body;
-    const detail = {
-      draftId: approval.draftId,
-      edited: approval.editedBody !== undefined,
-      bodyLength: body.length,
-      simulated: true,
-    };
-
-    // Two-phase like the MCP guard: the authorization row lands BEFORE the
-    // send — if it cannot be persisted, the send does not happen. No message
-    // ever leaves without a durable audit trace.
+  // Recovery pass: rows stuck in 'sending' from a crashed prior run.
+  for (const stuck of all.filter((a) => a.status === 'sending' && a.sendMessageId)) {
+    if (!deps.sender.findSent) continue; // simulated sender: human resolves on the dashboard
     try {
-      await deps.audit.record({
-        actor: 'human',
-        action: 'email_send',
-        phase: 'authorization',
-        allowed: true,
-        provider: draft.provider,
-        providerMessageId: draft.providerMessageId,
-        detail,
+      if (await deps.sender.findSent(stuck.sendMessageId!)) {
+        await deps.approvals.markSent(stuck.draftId);
+        report.sent.push(stuck.draftId);
+        continue;
+      }
+      // Hold measured from the send ATTEMPT, not the approval decision — an
+      // old approval whose first attempt just crashed must still wait out the
+      // provider's search lag. Missing timestamp -> hold (fail closed).
+      const attemptedAt = stuck.sendingAt ?? stuck.decidedAt;
+      if (!attemptedAt || now().getTime() - Date.parse(attemptedAt) < holdMs) continue;
+      // Re-stamp sendingAt for this new attempt; the Message-ID is reused.
+      await deps.approvals.setSendMessageId(stuck.draftId, stuck.sendMessageId!);
+      await sendOne(deps, { ...stuck }, report, stuck.sendMessageId!);
+    } catch (e) {
+      report.failed.push({
+        draftId: stuck.draftId,
+        reason: `recovery failed: ${e instanceof Error ? e.message : String(e)}`,
       });
+    }
+  }
+
+  for (const approval of all.filter((a) => a.status === 'approved')) {
+    if (!(await deps.approvals.claimForSend(approval.draftId))) continue;
+    // The idempotency key is durable before the provider ever sees the mail.
+    const sendMessageId = `<draft-${approval.draftId}-${crypto.randomUUID()}@triage>`;
+    try {
+      await deps.approvals.setSendMessageId(approval.draftId, sendMessageId);
     } catch (e) {
       report.failed.push({
         draftId: approval.draftId,
-        reason: `audit unavailable, send blocked: ${e instanceof Error ? e.message : String(e)}`,
+        reason: `send id not persisted, send blocked: ${e instanceof Error ? e.message : String(e)}`,
       });
       continue;
     }
+    await sendOne(deps, approval, report, sendMessageId);
+  }
+  return report;
+}
 
-    try {
-      // Thread scope: recipient and thread references come from the stored
-      // source message only — nothing the model produced can redirect a send.
-      // RFC In-Reply-To needs the source's own Message-ID, which the envelope
-      // doesn't carry; the phase-5 Gmail sender resolves it from providerThreadId.
-      await deps.sender.send({
-        to: message.from.address,
-        subject: `Re: ${message.subject}`,
-        body,
-        providerThreadId: message.providerThreadId,
-      });
-    } catch (e) {
-      await fail(e instanceof Error ? e.message : String(e));
-      continue;
-    }
-
-    await deps.approvals.markSent(approval.draftId);
-    report.sent.push(approval.draftId);
-    // Outcome row is best-effort: the send already happened and is covered by
-    // the authorization row; a logging hiccup must not fail the worker.
+async function sendOne(
+  deps: ApprovalWorkerDeps,
+  approval: Approval,
+  report: SendReport,
+  sendMessageId: string,
+): Promise<void> {
+  const fail = async (reason: string): Promise<void> => {
+    report.failed.push({ draftId: approval.draftId, reason });
     await deps.audit
       .record({
-        actor: 'human',
+        actor: 'system',
         action: 'email_send',
         phase: 'outcome',
         allowed: true,
-        outcome: 'ok',
-        provider: draft.provider,
-        providerMessageId: draft.providerMessageId,
-        detail,
+        outcome: 'error',
+        detail: { draftId: approval.draftId, reason },
       })
-      .catch((e: unknown) => {
-        report.failed.push({
-          draftId: approval.draftId,
-          reason: `sent, but outcome audit failed: ${e instanceof Error ? e.message : String(e)}`,
-        });
-      });
+      .catch(() => {});
+  };
+
+  const draft = await deps.drafts.getDraft(approval.draftId);
+  if (!draft) {
+    await fail('draft not found');
+    return;
   }
-  return report;
+  const message = await deps.messages.getMessage(draft.provider, draft.providerMessageId);
+  if (!message) {
+    await fail('source message not found');
+    return;
+  }
+
+  const body = approval.editedBody ?? draft.body;
+  const detail = {
+    draftId: approval.draftId,
+    edited: approval.editedBody !== undefined,
+    bodyLength: body.length,
+    sendMessageId,
+  };
+
+  // Two-phase like the MCP guard: the authorization row lands BEFORE the
+  // send — if it cannot be persisted, the send does not happen. No message
+  // ever leaves without a durable audit trace.
+  try {
+    await deps.audit.record({
+      actor: 'human',
+      action: 'email_send',
+      phase: 'authorization',
+      allowed: true,
+      provider: draft.provider,
+      providerMessageId: draft.providerMessageId,
+      detail,
+    });
+  } catch (e) {
+    report.failed.push({
+      draftId: approval.draftId,
+      reason: `audit unavailable, send blocked: ${e instanceof Error ? e.message : String(e)}`,
+    });
+    return;
+  }
+
+  let providerSendId: string | undefined;
+  try {
+    // Thread scope: recipient and thread references come from the stored
+    // source message only — nothing the model produced can redirect a send.
+    // RFC In-Reply-To is resolved by the sender from providerThreadId (the
+    // envelope doesn't carry the source's own Message-ID).
+    const result = await deps.sender.send({
+      to: message.from.address,
+      subject: `Re: ${message.subject}`,
+      body,
+      messageId: sendMessageId,
+      providerThreadId: message.providerThreadId,
+    });
+    providerSendId = result?.providerSendId;
+  } catch (e) {
+    await fail(e instanceof Error ? e.message : String(e));
+    return;
+  }
+
+  await deps.approvals.markSent(approval.draftId, providerSendId);
+  report.sent.push(approval.draftId);
+  // Outcome row is best-effort: the send already happened and is covered by
+  // the authorization row; a logging hiccup must not fail the worker.
+  await deps.audit
+    .record({
+      actor: 'human',
+      action: 'email_send',
+      phase: 'outcome',
+      allowed: true,
+      outcome: 'ok',
+      provider: draft.provider,
+      providerMessageId: draft.providerMessageId,
+      detail: { ...detail, providerSendId },
+    })
+    .catch((e: unknown) => {
+      report.failed.push({
+        draftId: approval.draftId,
+        reason: `sent, but outcome audit failed: ${e instanceof Error ? e.message : String(e)}`,
+      });
+    });
 }

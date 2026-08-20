@@ -91,7 +91,10 @@ export async function guarded(
   }
 
   if (!allowed) {
-    return refuse('POLICY_DENIED', `${tool} requires trust tier ${minTier}; sender is tier ${tier}`);
+    return refuse(
+      'POLICY_DENIED',
+      `${tool} requires trust tier ${minTier}; sender is tier ${tier}`,
+    );
   }
 
   let result: Record<string, unknown>;

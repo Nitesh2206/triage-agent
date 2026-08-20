@@ -76,7 +76,12 @@ describe('triageMessage', () => {
   }
 
   it('benign verdict: exactly log_decision + apply_label, no escalate, no drafts', async () => {
-    const verdict = { category: 'enrolment_query', urgency: 'normal', suspicion: noFlags, rationale: 'q' } as const;
+    const verdict = {
+      category: 'enrolment_query',
+      urgency: 'normal',
+      suspicion: noFlags,
+      rationale: 'q',
+    } as const;
     const result = await triageMessage(deps(llmReturning(verdict)), message);
     expect(result.verdict?.category).toBe('enrolment_query');
     expect(result.aborted).toBeUndefined();
@@ -119,7 +124,12 @@ describe('triageMessage', () => {
     const big = { ...message, body: 'x'.repeat(100_000) };
     const store = new MemoryStore();
     await store.upsertMessage(big);
-    const llm = llmReturning({ category: 'other', urgency: 'low', suspicion: noFlags, rationale: '' });
+    const llm = llmReturning({
+      category: 'other',
+      urgency: 'low',
+      suspicion: noFlags,
+      rationale: '',
+    });
     const result = await triageMessage(deps(llm), big);
     expect(result.aborted).toBe('INPUT_TOO_LARGE');
     expect(llm.classify).not.toHaveBeenCalled();
@@ -129,7 +139,12 @@ describe('triageMessage', () => {
   });
 
   it('actual usage over maxTotalTokens: cost recorded, breach alert, verdict still acted on', async () => {
-    const verdict = { category: 'invoice', urgency: 'normal', suspicion: noFlags, rationale: 'inv' } as const;
+    const verdict = {
+      category: 'invoice',
+      urgency: 'normal',
+      suspicion: noFlags,
+      rationale: 'inv',
+    } as const;
     const llm = llmReturning(verdict, { in: 13_000, out: 500 });
     const result = await triageMessage(deps(llm), message);
     expect(result.verdict?.category).toBe('invoice');
@@ -141,7 +156,12 @@ describe('triageMessage', () => {
 
   it('tool isError surfaces in actionErrors and later calls still run', async () => {
     const unknown = { ...message, providerMessageId: 'fx-missing' };
-    const verdict = { category: 'other', urgency: 'low', suspicion: noFlags, rationale: 'x' } as const;
+    const verdict = {
+      category: 'other',
+      urgency: 'low',
+      suspicion: noFlags,
+      rationale: 'x',
+    } as const;
     const result = await triageMessage(deps(llmReturning(verdict)), unknown);
     // Message not in store: guard refuses every call with UNKNOWN_MESSAGE.
     expect(result.actionErrors).toHaveLength(2);
@@ -191,7 +211,12 @@ describe('triageMessage', () => {
   });
 
   it('tier-2 draftable: draft staged via MCP, draft cost row recorded', async () => {
-    const verdict = { category: 'enrolment_query', urgency: 'normal', suspicion: noFlags, rationale: 'q' } as const;
+    const verdict = {
+      category: 'enrolment_query',
+      urgency: 'normal',
+      suspicion: noFlags,
+      rationale: 'q',
+    } as const;
     const llm = llmReturning(verdict);
     const result = await triageMessage(deps(llm), internalMessage);
     expect(result.drafted).toBe(true);
@@ -204,7 +229,12 @@ describe('triageMessage', () => {
   });
 
   it('tier-0 sender: draftReply never called even for a draftable category', async () => {
-    const verdict = { category: 'enrolment_query', urgency: 'normal', suspicion: noFlags, rationale: 'q' } as const;
+    const verdict = {
+      category: 'enrolment_query',
+      urgency: 'normal',
+      suspicion: noFlags,
+      rationale: 'q',
+    } as const;
     const llm = llmReturning(verdict);
     const result = await triageMessage(deps(llm), message); // example.com → tier 0
     expect(result.drafted).toBeUndefined();
@@ -228,7 +258,12 @@ describe('triageMessage', () => {
   });
 
   it('tier-2 non-draftable category: no draft', async () => {
-    const verdict = { category: 'complaint', urgency: 'high', suspicion: noFlags, rationale: 'c' } as const;
+    const verdict = {
+      category: 'complaint',
+      urgency: 'high',
+      suspicion: noFlags,
+      rationale: 'c',
+    } as const;
     const llm = llmReturning(verdict);
     await triageMessage(deps(llm), internalMessage);
     expect(llm.draftReply).not.toHaveBeenCalled();
@@ -236,7 +271,12 @@ describe('triageMessage', () => {
   });
 
   it('draftReply throw: DRAFT_FAILED surfaced, classification actions intact', async () => {
-    const verdict = { category: 'enrolment_query', urgency: 'normal', suspicion: noFlags, rationale: 'q' } as const;
+    const verdict = {
+      category: 'enrolment_query',
+      urgency: 'normal',
+      suspicion: noFlags,
+      rationale: 'q',
+    } as const;
     const llm: LLMProvider = {
       ...llmReturning(verdict),
       draftReply: async () => {
@@ -252,7 +292,12 @@ describe('triageMessage', () => {
   });
 
   it('draft skipped when cumulative budget cannot cover it', async () => {
-    const verdict = { category: 'enrolment_query', urgency: 'normal', suspicion: noFlags, rationale: 'q' } as const;
+    const verdict = {
+      category: 'enrolment_query',
+      urgency: 'normal',
+      suspicion: noFlags,
+      rationale: 'q',
+    } as const;
     const llm = llmReturning(verdict, { in: 500, out: 50 });
     const tight = { ...DEFAULT_BUDGET, maxTotalTokens: 600 };
     const result = await triageMessage(deps(llm, tight), internalMessage);
@@ -266,7 +311,12 @@ describe('triageMessage', () => {
   });
 
   it('records a correct cost row on the happy path', async () => {
-    const verdict = { category: 'spam', urgency: 'low', suspicion: noFlags, rationale: 's' } as const;
+    const verdict = {
+      category: 'spam',
+      urgency: 'low',
+      suspicion: noFlags,
+      rationale: 's',
+    } as const;
     await triageMessage(deps(llmReturning(verdict)), message);
     const [row] = await costs.list();
     expect(row).toMatchObject({

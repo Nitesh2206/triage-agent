@@ -37,9 +37,7 @@ describe('FixtureProvider', () => {
     // Same instant as the first message, expressed in a +10:00 offset. Lexicographic
     // comparison against Z-suffixed strings would misorder it; epoch comparison must not.
     const offsetCursor = new Date(Date.parse(all[0]!.receivedAt)).toISOString();
-    const viaOffset = await provider.sync(
-      offsetCursor.replace('Z', '+00:00'),
-    );
+    const viaOffset = await provider.sync(offsetCursor.replace('Z', '+00:00'));
     expect(viaOffset.messages.length).toBe(all.length - 1);
   });
 

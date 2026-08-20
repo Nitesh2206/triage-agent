@@ -33,7 +33,9 @@ for (const message of all) {
   let result = await triageMessage(deps, message);
   // Gemini free tier is 10 requests/min — back off and retry on rate limits.
   for (let retry = 0; result.aborted === 'CLASSIFY_FAILED' && retry < 2; retry++) {
-    console.log(`  ${message.providerMessageId} classify failed (${result.abortReason}); retrying in 30s`);
+    console.log(
+      `  ${message.providerMessageId} classify failed (${result.abortReason}); retrying in 30s`,
+    );
     await new Promise((r) => setTimeout(r, 30_000));
     result = await triageMessage(deps, message);
   }
@@ -55,7 +57,9 @@ const totalUsd = spend.reduce((s, c) => s + c.usd, 0);
 const totalTokens = spend.reduce((s, c) => s + c.inputTokens + c.outputTokens, 0);
 const entries = await audit.list();
 const draftedCount = results.filter((r) => r.drafted).length;
-console.log(`\naudit rows: ${entries.length} (refused: ${entries.filter((e) => !e.allowed).length})`);
+console.log(
+  `\naudit rows: ${entries.length} (refused: ${entries.filter((e) => !e.allowed).length})`,
+);
 console.log(`drafts staged this run: ${draftedCount} (total in store: ${await drafts.count()})`);
 console.log(`cost: ${totalTokens} tokens, $${totalUsd.toFixed(4)} across ${spend.length} calls`);
 

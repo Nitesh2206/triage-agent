@@ -13,4 +13,10 @@ export interface MessageStore {
   /** Lookup by the compound key — provider ids are only unique per provider. */
   getMessage(provider: string, providerMessageId: string): Promise<TriageMessage | null>;
   count(): Promise<number>;
+  /**
+   * Rerun idempotency: the live runner triages only untriaged rows, so a
+   * cursor replay or a crash between ingest and triage never re-triages.
+   */
+  listUntriaged(provider: string, limit: number): Promise<TriageMessage[]>;
+  markTriaged(provider: string, providerMessageId: string): Promise<void>;
 }

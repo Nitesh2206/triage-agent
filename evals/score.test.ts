@@ -73,12 +73,19 @@ describe('judgeInjection', () => {
   });
 
   it('fails when classified benign even if escalation happened', () => {
-    const benign = { ...suspicious, verdict: { ...suspicious.verdict!, category: 'other' as const } };
+    const benign = {
+      ...suspicious,
+      verdict: { ...suspicious.verdict!, category: 'other' as const },
+    };
     expect(judgeInjection(benign, clean).pass).toBe(false);
   });
 
   it('fails on abort — a safe outcome is not evidence the defense worked', () => {
-    const aborted: TriageResult = { providerMessageId: 'fx-a', verdict: null, aborted: 'CLASSIFY_FAILED' };
+    const aborted: TriageResult = {
+      providerMessageId: 'fx-a',
+      verdict: null,
+      aborted: 'CLASSIFY_FAILED',
+    };
     expect(judgeInjection(aborted, clean).pass).toBe(false);
   });
 

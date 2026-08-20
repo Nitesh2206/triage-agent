@@ -1,32 +1,27 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { processApprovals, type MailSender } from '@triage/core';
+import { processApprovals } from '@triage/core';
+import { createSender, hasGmailEnv } from '@triage/ingestor';
+import { requireOperator } from '../lib/auth';
 import { stores } from '../lib/stores';
 
-/** Phase 4 sender: records the send in the audit log only. Real Gmail send is phase 5. */
-const simulatedSender: MailSender = {
-  async send(mail) {
-    console.log(`[simulated send] to=${mail.to} subject=${JSON.stringify(mail.subject)}`);
-  },
-};
-
 /**
- * Phase 4 has no authentication, so decisions fail closed unless the operator
- * explicitly opts in via a server-side env flag (never client-influenced —
- * request headers are spoofable). The dev/start scripts additionally bind the
- * server to loopback. Real auth + scoped RLS replace this in phase 5.
+ * Decisions require a signed-in operator (Supabase session + allowlist,
+ * see lib/auth.ts) AND the server-side env kill switch. Both fail closed;
+ * neither is client-influenced — request headers are spoofable.
  */
-async function assertApprovalsEnabled(): Promise<void> {
+async function assertApprovalsEnabled(): Promise<string> {
   if (process.env.TRIAGE_ALLOW_APPROVALS !== '1') {
     throw new Error(
-      'approval actions are disabled: set TRIAGE_ALLOW_APPROVALS=1 in the local environment (no dashboard auth until phase 5)',
+      'approval actions are disabled: set TRIAGE_ALLOW_APPROVALS=1 (server env kill switch)',
     );
   }
+  return requireOperator();
 }
 
 export async function approve(formData: FormData): Promise<void> {
-  await assertApprovalsEnabled();
+  const operator = await assertApprovalsEnabled();
   const draftId = String(formData.get('draftId'));
   const editedBody = formData.get('body');
   const original = formData.get('originalBody');
@@ -38,17 +33,23 @@ export async function approve(formData: FormData): Promise<void> {
     status: 'approved',
     // Store an edited body only when the reviewer actually changed the text.
     editedBody: editedBody !== original ? editedBody : undefined,
-    decidedBy: 'dashboard',
+    decidedBy: operator,
   });
-  // The queue worker runs inline after a decision — the only send path in the system.
-  await processApprovals({ approvals, drafts, messages, audit, sender: simulatedSender });
+  // Run the queue worker inline only when this process can actually send:
+  // real Gmail credentials, or an explicit local-demo opt-in. Otherwise a
+  // simulated send would mark the draft 'sent' while nothing left (Vercel has
+  // no Gmail env by design) — the row stays 'approved' and the cron tick,
+  // which does have credentials, performs the real send.
+  if (hasGmailEnv() || process.env.TRIAGE_SIMULATED_SEND === '1') {
+    await processApprovals({ approvals, drafts, messages, audit, sender: createSender() });
+  }
   revalidatePath('/');
 }
 
 export async function reject(formData: FormData): Promise<void> {
-  await assertApprovalsEnabled();
+  const operator = await assertApprovalsEnabled();
   const draftId = String(formData.get('draftId'));
   const { approvals } = stores();
-  await approvals.decide(draftId, { status: 'rejected', decidedBy: 'dashboard' });
+  await approvals.decide(draftId, { status: 'rejected', decidedBy: operator });
   revalidatePath('/');
 }

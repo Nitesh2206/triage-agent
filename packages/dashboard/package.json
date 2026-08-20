@@ -8,7 +8,10 @@
     "start": "node --env-file-if-exists=../../.env node_modules/next/dist/bin/next start -H 127.0.0.1"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.45.0",
     "@triage/core": "workspace:*",
+    "@triage/ingestor": "workspace:*",
     "@triage/store": "workspace:*",
     "next": "^15.3.0",
     "react": "^19.0.0",

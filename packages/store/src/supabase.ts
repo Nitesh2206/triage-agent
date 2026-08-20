@@ -9,6 +9,8 @@ import type {
   DraftRecord,
   DraftStore,
   MessageStore,
+  SyncState,
+  SyncStateStore,
   TriageMessage,
   UpsertResult,
 } from '@triage/core';
@@ -60,23 +62,7 @@ export class SupabaseStore implements MessageStore {
       .maybeSingle();
     if (error) throw new Error(`supabase select failed: ${error.message}`);
     if (!data) return null;
-    return {
-      provider: data.provider,
-      providerMessageId: data.provider_message_id,
-      providerThreadId: data.provider_thread_id ?? undefined,
-      from: { address: data.from_address, displayName: data.from_display_name ?? undefined },
-      to: (data.to_addresses as string[]).map((address) => ({ address })),
-      cc: (data.cc_addresses as string[]).map((address) => ({ address })),
-      inReplyTo: data.in_reply_to ?? undefined,
-      headerReferences: data.header_references ?? [],
-      subject: data.subject,
-      receivedAt: data.received_at,
-      body: data.body,
-      authenticity: data.dmarc
-        ? { dmarc: data.dmarc, alignedDomain: data.aligned_domain ?? undefined }
-        : undefined,
-      authResultsRaw: data.auth_results_raw ?? undefined,
-    };
+    return mapMessage(data);
   }
 
   async count(): Promise<number> {
@@ -85,6 +71,78 @@ export class SupabaseStore implements MessageStore {
       .select('*', { count: 'exact', head: true });
     if (error) throw new Error(`supabase count failed: ${error.message}`);
     return count ?? 0;
+  }
+
+  async listUntriaged(provider: string, limit: number): Promise<TriageMessage[]> {
+    const { data, error } = await this.client
+      .from('messages')
+      .select('*')
+      .eq('provider', provider)
+      .is('triaged_at', null)
+      .order('received_at')
+      .limit(limit);
+    if (error) throw new Error(`supabase listUntriaged failed: ${error.message}`);
+    return (data ?? []).map(mapMessage);
+  }
+
+  async markTriaged(provider: string, providerMessageId: string): Promise<void> {
+    const { error } = await this.client
+      .from('messages')
+      .update({ triaged_at: new Date().toISOString() })
+      .eq('provider', provider)
+      .eq('provider_message_id', providerMessageId);
+    if (error) throw new Error(`supabase markTriaged failed: ${error.message}`);
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapMessage(data: any): TriageMessage {
+  return {
+    provider: data.provider,
+    providerMessageId: data.provider_message_id,
+    providerThreadId: data.provider_thread_id ?? undefined,
+    from: { address: data.from_address, displayName: data.from_display_name ?? undefined },
+    to: (data.to_addresses as string[]).map((address) => ({ address })),
+    cc: (data.cc_addresses as string[]).map((address) => ({ address })),
+    inReplyTo: data.in_reply_to ?? undefined,
+    headerReferences: data.header_references ?? [],
+    subject: data.subject,
+    receivedAt: data.received_at,
+    body: data.body,
+    authenticity: data.dmarc
+      ? { dmarc: data.dmarc, alignedDomain: data.aligned_domain ?? undefined }
+      : undefined,
+    authResultsRaw: data.auth_results_raw ?? undefined,
+  };
+}
+
+export class SupabaseSyncStateStore implements SyncStateStore {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async get(provider: string): Promise<SyncState | null> {
+    const { data, error } = await this.client
+      .from('sync_state')
+      .select('*')
+      .eq('provider', provider)
+      .maybeSingle();
+    if (error) throw new Error(`sync_state read failed: ${error.message}`);
+    if (!data) return null;
+    return {
+      cursor: data.cursor ?? null,
+      failureCount: data.failure_count ?? 0,
+      nextRetryAt: data.next_retry_at ?? null,
+    };
+  }
+
+  async set(provider: string, state: SyncState): Promise<void> {
+    const { error } = await this.client.from('sync_state').upsert({
+      provider,
+      cursor: state.cursor,
+      failure_count: state.failureCount,
+      next_retry_at: state.nextRetryAt,
+      last_synced_at: new Date().toISOString(),
+    });
+    if (error) throw new Error(`sync_state write failed: ${error.message}`);
   }
 }
 
@@ -204,6 +262,9 @@ export class SupabaseApprovalStore implements ApprovalStore {
       decidedBy: row.decided_by ?? undefined,
       decidedAt: row.decided_at ?? undefined,
       sentAt: row.sent_at ?? undefined,
+      sendMessageId: row.send_message_id ?? undefined,
+      providerSendId: row.gmail_message_id ?? undefined,
+      sendingAt: row.sending_at ?? undefined,
     }));
   }
 
@@ -237,10 +298,25 @@ export class SupabaseApprovalStore implements ApprovalStore {
     return (data ?? []).length > 0;
   }
 
-  async markSent(draftId: string): Promise<void> {
+  async setSendMessageId(draftId: string, sendMessageId: string): Promise<void> {
     const { data, error } = await this.client
       .from('approvals')
-      .update({ status: 'sent', sent_at: new Date().toISOString() })
+      .update({ send_message_id: sendMessageId, sending_at: new Date().toISOString() })
+      .eq('draft_id', Number(draftId))
+      .eq('status', 'sending')
+      .select('id');
+    if (error) throw new Error(`approval setSendMessageId failed: ${error.message}`);
+    if ((data ?? []).length === 0) throw new Error(`approval ${draftId} is not in 'sending'`);
+  }
+
+  async markSent(draftId: string, providerSendId?: string): Promise<void> {
+    const { data, error } = await this.client
+      .from('approvals')
+      .update({
+        status: 'sent',
+        sent_at: new Date().toISOString(),
+        gmail_message_id: providerSendId ?? null,
+      })
       .eq('draft_id', Number(draftId))
       .eq('status', 'sending')
       .select('id');

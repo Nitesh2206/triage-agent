@@ -26,9 +26,10 @@ export function createServer(deps: ServerDeps): McpServer {
       description: 'Apply a triage label to a message',
       inputSchema: { ...target, label: z.string() },
     },
-    (args) => guarded(guard, 'email_apply_label', args, { label: args.label }, async () => ({
-      applied: args.label,
-    })),
+    (args) =>
+      guarded(guard, 'email_apply_label', args, { label: args.label }, async () => ({
+        applied: args.label,
+      })),
   );
 
   server.registerTool(

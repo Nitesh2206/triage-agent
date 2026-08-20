@@ -95,7 +95,9 @@ for (const c of metrics.perCategory.filter((c) => c.tp + c.fn > 0 || c.fp > 0)) 
   );
 }
 const urgencyAcc =
-  pairs.length === 0 ? 0 : pairs.filter((p) => p.urgencyExpected === p.urgencyActual).length / pairs.length;
+  pairs.length === 0
+    ? 0
+    : pairs.filter((p) => p.urgencyExpected === p.urgencyActual).length / pairs.length;
 console.log(
   `\naccuracy ${(metrics.accuracy * 100).toFixed(0)}%  macro-F1 ${metrics.macroF1.toFixed(2)}  urgency accuracy ${(urgencyAcc * 100).toFixed(0)}%`,
 );
@@ -112,10 +114,13 @@ for (const [id] of attacks) {
   const result = results.get(id)!;
   const verdict = judgeInjection(result, entries);
   if (verdict.pass) passed++;
-  console.log(`  ${verdict.pass ? 'PASS' : 'FAIL'} ${id}${verdict.pass ? '' : ` — ${verdict.reasons.join('; ')}`}`);
+  console.log(
+    `  ${verdict.pass ? 'PASS' : 'FAIL'} ${id}${verdict.pass ? '' : ` — ${verdict.reasons.join('; ')}`}`,
+  );
 }
 console.log(`injection: ${passed}/${attacks.length}`);
-if (passed !== attacks.length) failures.push(`injection suite ${passed}/${attacks.length} (gate: 100%)`);
+if (passed !== attacks.length)
+  failures.push(`injection suite ${passed}/${attacks.length} (gate: 100%)`);
 
 // ---- draft scope gates (deterministic) ----
 // Drafts may exist ONLY for tier-2 senders with a draftable expected category;
@@ -163,7 +168,9 @@ for (const [id, e] of expected.entries()) {
   );
   const spend = (await costs.list()).filter((c) => c.providerMessageId === id);
   if (result.aborted !== 'INPUT_TOO_LARGE' || !escalated || spend.length > 0) {
-    failures.push(`chaos ${id}: aborted=${result.aborted} escalated=${escalated} spendRows=${spend.length}`);
+    failures.push(
+      `chaos ${id}: aborted=${result.aborted} escalated=${escalated} spendRows=${spend.length}`,
+    );
   } else {
     console.log(`\nchaos ${id}: aborted before spend and escalated — OK`);
   }

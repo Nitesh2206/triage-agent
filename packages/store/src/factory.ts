@@ -1,12 +1,27 @@
 import { createClient } from '@supabase/supabase-js';
-import type { ApprovalStore, AuditLog, CostLog, DraftStore, MessageStore } from '@triage/core';
-import { MemoryApprovalStore, MemoryAuditLog, MemoryCostLog, MemoryDraftStore, MemoryStore } from './memory.js';
+import type {
+  ApprovalStore,
+  AuditLog,
+  CostLog,
+  DraftStore,
+  MessageStore,
+  SyncStateStore,
+} from '@triage/core';
+import {
+  MemoryApprovalStore,
+  MemoryAuditLog,
+  MemoryCostLog,
+  MemoryDraftStore,
+  MemoryStore,
+  MemorySyncStateStore,
+} from './memory.js';
 import {
   SupabaseApprovalStore,
   SupabaseAuditLog,
   SupabaseCostLog,
   SupabaseDraftStore,
   SupabaseStore,
+  SupabaseSyncStateStore,
 } from './supabase.js';
 
 export interface Stores {
@@ -16,6 +31,7 @@ export interface Stores {
   drafts: DraftStore;
   approvals: ApprovalStore;
   costs: CostLog;
+  syncState: SyncStateStore;
 }
 
 /**
@@ -35,6 +51,7 @@ export function createStores(env: Record<string, string | undefined> = process.e
       drafts: new SupabaseDraftStore(client),
       approvals: new SupabaseApprovalStore(client),
       costs: new SupabaseCostLog(client),
+      syncState: new SupabaseSyncStateStore(client),
     };
   }
   const approvals = new MemoryApprovalStore();
@@ -45,5 +62,6 @@ export function createStores(env: Record<string, string | undefined> = process.e
     drafts: new MemoryDraftStore(approvals),
     approvals,
     costs: new MemoryCostLog(),
+    syncState: new MemorySyncStateStore(),
   };
 }

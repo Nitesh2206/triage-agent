@@ -6,7 +6,7 @@ Working document: phases, tasks, acceptance bars. Check things off as they land;
 
 - Each phase ends with a working system and green checks — never a half-wired layer
 - Commit per meaningful step; the history should read as the build story
-- Security and eval infrastructure land *before* the features they guard
+- Security and eval infrastructure land _before_ the features they guard
 
 ## Prerequisites
 
@@ -52,10 +52,10 @@ External review of phase 1; accepted findings applied:
 
 ## Phase 3 — Agent loop + quarantine + classification ✅ (done)
 
-- [x] `@triage/agent`: `LLMProvider` interface; `claude` + `gemini` + `fake` implementations. *Deviation: plain Messages API + explicit MCP client calls, not Agent SDK — classification has zero tools by design and code drives the tool calls; the SDK earns its place in phase 4 when drafting needs real agentic tool use. `fake` (keyword heuristic) keeps `pnpm demo` credential-free.*
+- [x] `@triage/agent`: `LLMProvider` interface; `claude` + `gemini` + `fake` implementations. _Deviation: plain Messages API + explicit MCP client calls, not Agent SDK — classification has zero tools by design and code drives the tool calls; the SDK earns its place in phase 4 when drafting needs real agentic tool use. `fake` (keyword heuristic) keeps `pnpm demo` credential-free._
 - [x] Quarantine wrapper: per-message nonce-delimited untrusted block; extraction pass = structured output only, zero tools
 - [x] Classification (Haiku / Gemini Flash), suspicion flags (any flag forces category `suspicious` in code), pre-flight estimated-token hard cap (kill before spend) + API max_tokens output kill + post-flight breach alert
-- [x] Eval harness `evals/run.ts`: classification suite (precision/recall/macro-F1, reported not gated), injection suite (100% gate incl. audit-log scan for out-of-policy calls), benign false-positive gate ≤15%, chaos giant-body fixture. *Deviation: 31 fixtures not ~60 — enough for per-category stats; grow later.*
+- [x] Eval harness `evals/run.ts`: classification suite (precision/recall/macro-F1, reported not gated), injection suite (100% gate incl. audit-log scan for out-of-policy calls), benign false-positive gate ≤15%, chaos giant-body fixture. _Deviation: 31 fixtures not ~60 — enough for per-category stats; grow later._
 - [x] CI: 10-fixture smoke on push (Gemini secret, fails loudly if missing), full suite on `workflow_dispatch`; eval jobs never run on `pull_request` so the secret can't meet fork code
 - [x] **Accept:** `pnpm demo` classifies all fixtures end-to-end through MCP tools; injection suite gated at 100%
 - Deferred: durable `escalations` table (dashboard reads escalations from the audit log) · rerun idempotency operation key → phase 5 (phase-3 stores are fresh-per-run) · majority-vote accuracy gate → later (single-run too noisy). `SupabaseCostLog` was un-deferred in phase 4 — the cost dashboard consumes it.
@@ -64,23 +64,24 @@ External review of phase 1; accepted findings applied:
 
 - [x] Draft generation: `draftReply` on `LLMProvider` (claude → `claude-sonnet-5`, gemini → `gemini-3.5-flash`, fake → template); code gates in the loop — tier 2 AND draftable category (`enrolment_query`, `certificate_request`) AND not suspicious; MCP guard stays the enforcement authority. Budget covers classify+draft cumulatively; over-budget drafts skipped pre-flight with a refused audit row
 - [x] Migration 0003: `approvals` (pending → approved|rejected; approved → sending → sent), created atomically with each draft by DB trigger; costs table gains (provider, provider_message_id)
-- [x] Queue worker `processApprovals` — the only send path; audit authorization row persisted BEFORE the send (audit down = send blocked); atomic `claimForSend` (conditional update) prevents double-send; recipient/thread scope fixed in code to the source message; phase-4 sender is simulated. *Deviation: provider-side idempotency key deferred to phase 5's real Gmail sender.*
+- [x] Queue worker `processApprovals` — the only send path; audit authorization row persisted BEFORE the send (audit down = send blocked); atomic `claimForSend` (conditional update) prevents double-send; recipient/thread scope fixed in code to the source message; phase-4 sender is simulated. _Deviation: provider-side idempotency key deferred to phase 5's real Gmail sender._
 - [x] `@triage/dashboard` (Next.js 15): approval queue with approve/edit/reject (server actions run the worker inline), audit log incl. refusals, per-stage cost table; Supabase-backed via root `.env`. Decisions fail closed unless `TRIAGE_ALLOW_APPROVALS=1` (server-side env, never headers — spoofable); dev/start bind to 127.0.0.1
 - [x] Eval draft gates (deterministic): zero drafts for attack fixtures; exactly one draft per tier-2 draftable benign fixture. LLM-judge draft-quality suite stays roadmap.
 - [x] **Accept (verified live 2026-08-19):** fx-012 → Gemini classify → draft staged → approved on dashboard → simulated send with two-phase `email_send` audit rows, approval `sent`
-- *Deviation (reviewed): RLS read policies NOT added — dashboard is local-only on the service role in phase 4; deliberate scoped policies land with real auth + deploy in phase 5. `authenticated using (true)` would have exposed every sensitive row.*
-- *Note: gemini default model moved to `gemini-3.5-flash` — 2.5-generation models 404 for new accounts, and free-tier daily quota on retired models is tiny.*
+- _Deviation (reviewed): RLS read policies NOT added — dashboard is local-only on the service role in phase 4; deliberate scoped policies land with real auth + deploy in phase 5. `authenticated using (true)` would have exposed every sensitive row._
+- _Note: gemini default model moved to `gemini-3.5-flash` — 2.5-generation models 404 for new accounts, and free-tier daily quota on retired models is tiny._
 
-## Phase 5 — Live Gmail + deployment
+## Phase 5 — Live Gmail + deployment (code complete; live acceptance pending credentials)
 
-- [ ] `GmailProvider`: OAuth, historyId cursor via `sync_state`, expiry → full resync, retry/backoff
-- [ ] Real `MailSender` (Gmail) with provider-side idempotency key; resolve In-Reply-To from the thread
-- [ ] Dashboard auth + deliberate scoped RLS read policies (deferred from phase 4)
-- [ ] Cursor persistence: store page first, advance cursor after — replay-safe by idempotency
-- [ ] Live Supabase integration test (insert, duplicate, count, error propagation) in CI
-- [ ] Retention/deletion job per threat model
-- [ ] Deploy: ingestor+agent on GitHub Actions cron; dashboard on Vercel
-- [ ] **Accept:** real test inbox triaged live; per-stage costs visible on dashboard
+- [x] `GmailProvider`: OAuth (desktop client + refresh token, consent script `pnpm --filter @triage/ingestor gmail:consent`), historyId cursor via `sync_state`, 404 → `CursorExpiredError` → full resync (bounded `newer_than:30d`), jittered 429/5xx retry
+- [x] Real `GmailSender`: we author the RFC 5322 Message-ID and persist it on the approval row BEFORE the provider call; recovery pass probes `rfc822msgid:` and only resends past a hold window (`TRIAGE_SEND_HOLD_MINUTES`, default 30) — _best-effort_ idempotency, since Gmail search is eventually consistent. In-Reply-To/References resolved from the source thread's last message
+- [x] Dashboard auth (Supabase magic-link + `operators` allowlist, `requireOperator` fail closed on every page and action, `decidedBy` = operator email) + scoped SELECT-only RLS policies (migration 0005); `TRIAGE_ALLOW_APPROVALS=1` stays as a second kill switch. Approval no longer sends inline unless the process can really send (Gmail env) or a local demo opts in with `TRIAGE_SIMULATED_SEND=1` — on Vercel the row stays `approved` and the cron tick sends
+- [x] Cursor persistence (`SyncStateStore`, `syncOnce`): page stored first, cursor after; exponential backoff on failures. Rerun idempotency via `messages.triaged_at` — the deferred phase-3 operation key, minimal form
+- [x] Live Supabase integration test (insert, duplicate, count, error propagation, purge round-trip, RLS reads-nothing) — `live-store` CI job against a DEDICATED test project, push/dispatch only
+- [x] Retention purge `purge_expired()` (migration 0004): cascade delete, audit/costs matched by (provider, providerMessageId) pair AND row age, hardened security-definer; runs at the top of every live tick
+- [x] Deploy config: `triage-cron.yml` (15-min tick, concurrency-guarded, Gemini) + `vercel.json`; runner `pnpm run:live`
+- [ ] **Accept:** real test inbox triaged live (needs Gmail OAuth spike: verify published-app refresh-token longevity for restricted scopes); failure-path checks — expired cursor full-resync, interrupted-send recovery both branches; per-stage costs visible on dashboard
+- Deferred to phase 6: Trello live cards (no API key) · durable `escalations` table (`triaged_at` covers rerun idempotency) · supabase-CLI migration automation in CI
 
 ## Phase 6 — Roadmap (unscheduled)
 

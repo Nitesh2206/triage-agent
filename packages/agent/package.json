@@ -5,18 +5,18 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "demo": "tsc && node --env-file-if-exists=../../.env dist/demo.js"
+    "demo": "tsc && node --env-file-if-exists=../../.env dist/demo.js",
+    "run:live": "tsc && node --env-file-if-exists=../../.env dist/run-live.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
     "@google/genai": "^1.16.0",
     "@modelcontextprotocol/sdk": "^1.12.0",
+    "@supabase/supabase-js": "^2.45.0",
     "@triage/core": "workspace:*",
-    "zod": "^3.25.0"
-  },
-  "devDependencies": {
     "@triage/ingestor": "workspace:*",
     "@triage/mcp-server": "workspace:*",
-    "@triage/store": "workspace:*"
+    "@triage/store": "workspace:*",
+    "zod": "^3.25.0"
   }
 }

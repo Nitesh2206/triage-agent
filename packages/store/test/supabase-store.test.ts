@@ -47,7 +47,9 @@ describe('SupabaseStore error mapping', () => {
     const store = new SupabaseStore(
       stubClient({ insertError: { code: '42P01', message: 'relation "messages" does not exist' } }),
     );
-    await expect(store.upsertMessage(message)).rejects.toThrow(/relation "messages" does not exist/);
+    await expect(store.upsertMessage(message)).rejects.toThrow(
+      /relation "messages" does not exist/,
+    );
   });
 
   it('count returns the exact count and propagates errors', async () => {
@@ -62,7 +64,10 @@ describe('SupabaseStore error mapping', () => {
  * Stub for the conditional-update chains: update().eq().eq().select() resolves
  * to {data, error}; select() is also chainable with .order() for list paths.
  */
-function updateStub(data: unknown[] | null, error: { message: string } | null = null): SupabaseClient {
+function updateStub(
+  data: unknown[] | null,
+  error: { message: string } | null = null,
+): SupabaseClient {
   const result = { data, error };
   const terminal = () => Object.assign(Promise.resolve(result), { order: async () => result });
   const chain = {
@@ -86,7 +91,10 @@ describe('SupabaseApprovalStore', () => {
 
   it('decide throws when zero rows matched (not pending)', async () => {
     await expect(
-      new SupabaseApprovalStore(updateStub([])).decide('1', { status: 'approved', decidedBy: 'ops' }),
+      new SupabaseApprovalStore(updateStub([])).decide('1', {
+        status: 'approved',
+        decidedBy: 'ops',
+      }),
     ).rejects.toThrow(/not pending/);
   });
 
@@ -96,7 +104,9 @@ describe('SupabaseApprovalStore', () => {
   });
 
   it('markSent throws when the row was not in sending', async () => {
-    await expect(new SupabaseApprovalStore(updateStub([])).markSent('1')).rejects.toThrow(/sending/);
+    await expect(new SupabaseApprovalStore(updateStub([])).markSent('1')).rejects.toThrow(
+      /sending/,
+    );
   });
 
   it('database errors propagate', async () => {
