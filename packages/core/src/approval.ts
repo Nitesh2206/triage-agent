@@ -122,7 +122,7 @@ export async function processApprovals(
       if (!attemptedAt || now().getTime() - Date.parse(attemptedAt) < holdMs) continue;
       // Re-stamp sendingAt for this new attempt; the Message-ID is reused.
       await deps.approvals.setSendMessageId(stuck.draftId, stuck.sendMessageId!);
-      await sendOne(deps, { ...stuck }, report, stuck.sendMessageId!);
+      await sendOne(deps, stuck, report, stuck.sendMessageId!);
     } catch (e) {
       report.failed.push({
         draftId: stuck.draftId,

@@ -17,8 +17,6 @@ const CATEGORY_KEYWORDS: [Category, RegExp][] = [
   ['spam', /\bunsubscribe|special offer|seo|limited time|winner\b/i],
 ];
 
-const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
-
 function flags(text: string): SuspicionFlags {
   return {
     instructionOverride:
@@ -33,7 +31,7 @@ function flags(text: string): SuspicionFlags {
       text,
     ),
     hiddenOrEncodedContent:
-      /<!--|[A-Za-z0-9+/]{40,}={0,2}/.test(text) || text.includes(ZERO_WIDTH_SPACE),
+      /<!--|[A-Za-z0-9+/]{40,}={0,2}/.test(text) || text.includes('\u200b'),
   };
 }
 

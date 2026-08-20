@@ -110,8 +110,8 @@ function encodeHeader(value: string): string {
  * Gmail env present -> real sender; otherwise the simulated logger (fail-closed
  * default: nothing real leaves without deliberate credentials).
  */
-export function createSender(env: Record<string, string | undefined> = process.env): MailSender {
-  if (hasGmailEnv(env)) return new GmailSender(gmailClient(env) as unknown as GmailSendApi);
+export function createSender(): MailSender {
+  if (hasGmailEnv()) return new GmailSender(gmailClient() as unknown as GmailSendApi);
   return {
     async send(mail) {
       console.log(`[simulated send] to=${mail.to} subject=${JSON.stringify(mail.subject)}`);

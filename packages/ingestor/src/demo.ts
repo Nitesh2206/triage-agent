@@ -1,17 +1,13 @@
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
-import { MemoryStore, SupabaseStore } from '@triage/store';
+import { createStores } from '@triage/store';
 import { FixtureProvider } from './fixture-provider.js';
 import { ingest } from './ingest.js';
 
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), '../../../evals/fixtures');
 const provider = new FixtureProvider(fixtureDir);
 
-const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
-const store =
-  SUPABASE_URL && SUPABASE_SERVICE_KEY
-    ? SupabaseStore.fromCredentials(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    : new MemoryStore();
+const store = createStores().messages;
 console.log(`store: ${store.constructor.name}`);
 
 const first = await ingest(provider, store);

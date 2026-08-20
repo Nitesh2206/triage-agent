@@ -62,10 +62,7 @@ interface GmailPart {
 export class GmailProvider implements MailProvider {
   readonly name = 'gmail';
 
-  constructor(
-    private readonly gmail: GmailApi,
-    private readonly fullSyncWindow = 'newer_than:30d',
-  ) {}
+  constructor(private readonly gmail: GmailApi) {}
 
   async sync(cursor?: string): Promise<SyncResult> {
     const { ids, nextCursor } = cursor ? await this.listSince(cursor) : await this.listRecent();
@@ -120,7 +117,7 @@ export class GmailProvider implements MailProvider {
       const { data } = await withRetry(() =>
         this.gmail.users.messages.list({
           userId: 'me',
-          q: `in:inbox ${this.fullSyncWindow}`,
+          q: 'in:inbox newer_than:30d',
           pageToken,
         }),
       );

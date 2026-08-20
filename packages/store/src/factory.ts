@@ -39,9 +39,9 @@ export interface Stores {
  * in-memory set otherwise (credential-free demo). Service role bypasses RLS —
  * server-side only, never ship this key to a browser.
  */
-export function createStores(env: Record<string, string | undefined> = process.env): Stores {
-  const url = env.SUPABASE_URL;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+export function createStores(): Stores {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (url && key) {
     const client = createClient(url, key);
     return {

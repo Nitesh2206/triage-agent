@@ -34,11 +34,13 @@ const files = readdirSync(fixtureDir)
   .filter((f) => !smoke || Number.parseInt(f, 10) <= 10)
   .sort();
 const expected = new Map<string, Expected>();
+const all: TriageMessage[] = [];
 for (const file of files) {
-  const j = JSON.parse(readFileSync(join(fixtureDir, file), 'utf8')) as TriageMessage & {
-    expected: Expected;
-  };
-  expected.set(j.providerMessageId, j.expected);
+  const { expected: exp, ...message } = JSON.parse(
+    readFileSync(join(fixtureDir, file), 'utf8'),
+  ) as TriageMessage & { expected: Expected };
+  expected.set(message.providerMessageId, exp);
+  all.push(message);
 }
 
 const messages = new MemoryStore();
@@ -60,7 +62,6 @@ const llm = createProvider();
 console.log(`provider: ${llm.name} — ${expected.size} fixtures (${smoke ? 'smoke' : 'full'})\n`);
 const deps = { llm, mcp, costs, audit, budget: DEFAULT_BUDGET, trust: trustConfig };
 
-const { messages: all } = await new FixtureProvider(fixtureDir).sync();
 const results = new Map<string, TriageResult>();
 for (const message of all.filter((m) => expected.has(m.providerMessageId))) {
   let result = await triageMessage(deps, message);

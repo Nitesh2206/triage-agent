@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   Approval,
   ApprovalStore,
@@ -23,10 +23,6 @@ import type {
 export class SupabaseStore implements MessageStore {
   /** Client injectable so error mapping is unit-testable without a live database. */
   constructor(private readonly client: SupabaseClient) {}
-
-  static fromCredentials(url: string, serviceKey: string): SupabaseStore {
-    return new SupabaseStore(createClient(url, serviceKey));
-  }
 
   async upsertMessage(message: TriageMessage): Promise<UpsertResult> {
     const { error } = await this.client.from('messages').insert({
